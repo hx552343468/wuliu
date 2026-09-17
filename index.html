@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>集卡物流系统 - 运单管理</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="功能导航">
+        <div class="brand">
+          <div class="brand-mark">集</div>
+          <div>
+            <strong>集卡物流系统</strong>
+            <span>Container Trucking</span>
+          </div>
+        </div>
+
+        <nav class="nav-menu">
+          <section class="nav-section active">
+            <button class="nav-parent" type="button">
+              <span class="nav-icon">▣</span>
+              集卡业务
+            </button>
+            <button class="nav-child selected" data-page="waybill" type="button">运单管理</button>
+            <button class="nav-child" data-page="fixed-routes" type="button">固定线路管理</button>
+            <button class="nav-child" data-page="dispatch-list" type="button">派单列表</button>
+          </section>
+          <section class="nav-section">
+            <button class="nav-parent" type="button">
+              <span class="nav-icon">▤</span>
+              车辆管理
+            </button>
+            <button class="nav-child" data-page="vehicle-archives" type="button">车辆档案管理</button>
+          </section>
+          <section class="nav-section">
+            <button class="nav-parent" type="button">
+              <span class="nav-icon">♙</span>
+              司机管理
+            </button>
+            <button class="nav-child" data-page="driver-archives" type="button">司机档案管理</button>
+          </section>
+          <button class="nav-item" type="button"><span class="nav-icon">￥</span>财务管理</button>
+          <button class="nav-item" type="button"><span class="nav-icon">▥</span>统计分析</button>
+          <button class="nav-item" type="button"><span class="nav-icon">◇</span>基础资料</button>
+          <button class="nav-item" type="button"><span class="nav-icon">□</span>办公管理</button>
+          <button class="nav-item" type="button"><span class="nav-icon">⚙</span>系统配置</button>
+          <button class="nav-item" type="button"><span class="nav-icon">?</span>关于我们</button>
+        </nav>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="system-kicker" id="pageKicker">运输调度 / 运单台账</p>
+            <h1 id="pageTitle">运单管理</h1>
+          </div>
+          <div class="topbar-actions">
+            <a class="mobile-entry" href="mobile.html" target="_blank">司机移动端</a>
+            <div class="user-chip">
+              <span class="status-dot"></span>
+              运营中心
+            </div>
+          </div>
+        </header>
+
+        <section class="workspace">
+          <section class="page-view active" id="waybillPage">
+            <form class="query-panel" id="queryForm">
+              <div class="query-grid">
+                <label class="field">
+                  <span>接单日期</span>
+                  <input type="date" name="orderDate" value="2026-09-16" />
+                </label>
+                <label class="field">
+                  <span>运单号</span>
+                  <input type="text" name="waybillNo" placeholder="请输入运单号" />
+                </label>
+                <label class="field">
+                  <span>客户名称</span>
+                  <input type="text" name="customerName" placeholder="请输入客户名称" />
+                </label>
+                <label class="field">
+                  <span>装卸地址</span>
+                  <input type="text" name="loadAddress" placeholder="请输入装卸地址" />
+                </label>
+                <label class="field">
+                  <span>目的地</span>
+                  <select name="destination">
+                    <option value="">全部目的地</option>
+                    <option>宁波北仑</option>
+                    <option>上海洋山</option>
+                    <option>苏州工业园</option>
+                    <option>杭州萧山</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>派车号</span>
+                  <input type="text" name="dispatchNo" placeholder="请输入派车号" />
+                </label>
+              </div>
+
+              <div class="query-footer">
+                <fieldset class="radio-group">
+                  <legend>回单状态</legend>
+                  <label><input type="radio" name="receiptStatus" value="未回单" checked />未回单</label>
+                  <label><input type="radio" name="receiptStatus" value="已回单" />已回单</label>
+                  <label><input type="radio" name="receiptStatus" value="全部" />全部</label>
+                </fieldset>
+
+                <div class="action-bar">
+                  <button class="btn primary" type="submit">查找 / 刷新</button>
+                  <button class="btn accent" type="button" id="addBtn">新增</button>
+                  <button class="btn primary ghost-trigger" type="button" id="moreBtn">更多功能</button>
+                  <div class="more-menu" id="moreMenu">
+                    <button type="button">批量审核</button>
+                    <button type="button">导出运单</button>
+                    <button type="button">打印回单</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <section class="table-card" aria-label="运单数据表格">
+              <div class="table-summary">
+                <div>
+                  <strong>运单列表</strong>
+                  <span id="resultText">共 4 条记录，审核状态均为草拟</span>
+                </div>
+                <span class="draft-badge">草拟 4</span>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="check-col">
+                        <label class="checkbox-label">
+                          <input id="selectAll" type="checkbox" />
+                          可调度
+                        </label>
+                      </th>
+                      <th>运单号</th>
+                      <th>接单日期</th>
+                      <th>客户 ID</th>
+                      <th>客户名称</th>
+                      <th>提单号</th>
+                      <th>装卸地址</th>
+                      <th>派车号</th>
+                      <th>派车日期</th>
+                      <th>箱号 1</th>
+                      <th>封号 1</th>
+                      <th>箱号 2</th>
+                      <th>封号 2</th>
+                      <th>箱型</th>
+                      <th>审核状态</th>
+                      <th>需要回单</th>
+                      <th>收到回单</th>
+                      <th>备注</th>
+                      <th>运价</th>
+                      <th>应收金额</th>
+                      <th>录入日期</th>
+                      <th>利润</th>
+                      <th>应付金额</th>
+                      <th>承运商</th>
+                      <th>还箱点</th>
+                    </tr>
+                  </thead>
+                  <tbody id="waybillBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <footer class="pagination">
+              <label>
+                每页条数
+                <select id="pageSize">
+                  <option>10</option>
+                  <option selected>20</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+              </label>
+              <div class="page-controls" aria-label="分页控件">
+                <button type="button" disabled>上一页</button>
+                <button type="button" class="page-current">1</button>
+                <button type="button" disabled>下一页</button>
+                <label>
+                  跳至
+                  <input id="pageJump" type="number" min="1" value="1" />
+                  页
+                </label>
+              </div>
+            </footer>
+          </section>
+
+          <section class="page-view" id="routePage">
+            <form class="query-panel" id="routeQueryForm">
+              <div class="query-grid route-query-grid">
+                <label class="field"><span>线路编号</span><input name="routeCode" placeholder="请输入线路编号" /></label>
+                <label class="field"><span>线路名称</span><input name="routeName" placeholder="请输入线路名称" /></label>
+                <label class="field"><span>起运地</span><input name="origin" placeholder="请输入起运地" /></label>
+                <label class="field"><span>目的地</span><input name="destination" placeholder="请输入目的地" /></label>
+                <label class="field"><span>线路状态</span><select name="routeState"><option value="">全部状态</option><option>启用</option><option>停用</option></select></label>
+              </div>
+              <div class="query-footer">
+                <span class="selection-summary" id="routeSelectedText">已选择 0 条线路</span>
+                <div class="action-bar">
+                  <button class="btn primary" type="submit">查找 / 刷新</button>
+                  <button class="btn accent" id="addRouteBtn" type="button">新增</button>
+                  <button class="btn primary" id="routeMoreBtn" type="button">更多功能</button>
+                  <div class="more-menu" id="routeMoreMenu">
+                    <button id="exportRouteBtn" type="button">导出线路档案</button>
+                    <button id="batchRouteStateBtn" type="button">批量停用线路</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <section class="table-card" aria-label="固定线路列表">
+              <div class="table-summary">
+                <div><strong>固定线路列表</strong><span id="routeResultText">线路收入、基础运价和司机提成规则</span></div>
+                <span class="draft-badge" id="routeActiveBadge">启用 0</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="check-col"><label class="checkbox-label"><input id="routeSelectAll" type="checkbox" />全选</label></th>
+                      <th>线路编号</th><th>线路名称</th><th>起运地址</th><th>目的地址</th><th>预估线路收入</th>
+                      <th>司机提成方式</th><th>提成金额 / 比例</th><th>线路状态</th><th>备注</th><th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="routeBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <footer class="pagination" aria-label="固定线路分页">
+              <label>每页条数<select id="routePageSize"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select></label>
+              <div class="page-controls">
+                <button id="routePrevPage" type="button" disabled>上一页</button><button class="page-current" id="routeCurrentPage" type="button">1</button><button id="routeNextPage" type="button" disabled>下一页</button>
+                <label>跳至<input id="routePageJump" type="number" min="1" value="1" />页</label><span class="total-records" id="routeTotalText">共 0 条记录</span>
+              </div>
+            </footer>
+
+            <dialog class="add-dialog vehicle-dialog route-dialog" id="routeDialog">
+              <form id="routeForm">
+                <header class="vehicle-dialog-header"><div><strong id="routeFormTitle">新增固定线路</strong><span>预配置线路收入和司机提成规则，开运单时可直接引用</span></div><button aria-label="关闭" class="icon-btn" id="closeRouteFormBtn" type="button">×</button></header>
+                <div class="driver-form-body">
+                  <section class="driver-form-section"><h3>线路基础信息</h3><div class="form-grid">
+                    <label class="field">线路编号<input name="routeCode" required /></label><label class="field">线路名称<input name="routeName" required /></label>
+                    <label class="field">起运地<input name="origin" required /></label><label class="field">目的地<input name="destination" required /></label>
+                    <label class="field">途经点<input name="viaPoints" placeholder="多个地点用顿号分隔" /></label><label class="field">线路状态<select name="routeState"><option>启用</option><option>停用</option></select></label>
+                    <label class="field">备注<input name="remark" /></label>
+                  </div></section>
+                  <section class="driver-form-section"><h3>线路预估收入与司机提成</h3><div class="form-grid">
+                    <label class="field">单次预估收入（元）<input name="estimatedRevenue" type="number" min="0" step="0.01" required /></label>
+                    <label class="field">线路基础运价（元）<input name="baseFreight" type="number" min="0" step="0.01" required /></label>
+                    <label class="field">提成方式<select name="commissionType" id="routeCommissionType"><option value="fixed">固定金额提成</option><option value="rate">按收入比例提成</option></select></label>
+                    <label class="field"><span id="routeCommissionLabel">固定提成金额（元）</span><input name="commissionValue" id="routeCommissionValue" type="number" min="0" step="0.01" required /></label>
+                    <label class="field">预计司机提成（元）<input id="routeCommissionPreview" readonly /></label>
+                    <label class="field">提成规则说明<input name="commissionRemark" placeholder="例如：含往返空驶补贴" /></label>
+                  </div></section>
+                  <section class="driver-form-section"><h3>关联配置（可选）</h3><div class="form-grid">
+                    <label class="field">常用车辆<select name="defaultVehicle" id="routeDefaultVehicle"><option value="">不指定</option></select></label>
+                    <label class="field">常用司机<select name="defaultDriver" id="routeDefaultDriver"><option value="">不指定</option></select></label>
+                  </div></section>
+                </div>
+                <div class="form-actions"><button class="btn quiet" id="cancelRouteFormBtn" type="button">取消</button><button class="btn primary" type="submit">保存线路</button></div>
+              </form>
+            </dialog>
+
+            <dialog class="confirm-dialog" id="deleteRouteDialog"><div class="confirm-icon" aria-hidden="true">!</div><h2>删除固定线路</h2><p id="deleteRouteText">删除后线路配置将无法恢复。</p><div class="confirm-actions"><button class="btn quiet" id="cancelDeleteRouteBtn" type="button">取消</button><button class="btn danger" id="confirmDeleteRouteBtn" type="button">确认删除</button></div></dialog>
+          </section>
+
+          <section class="page-view" id="dispatchPage">
+            <form class="query-panel" id="dispatchQueryForm">
+              <div class="query-grid dispatch-query-grid">
+                <label class="field"><span>运单号</span><input name="waybillNo" placeholder="请输入运单号" /></label>
+                <label class="field"><span>接单日期</span><input name="orderDate" type="date" /></label>
+                <label class="field"><span>线路</span><select name="routeId" id="dispatchRouteFilter"><option value="">全部线路</option></select></label>
+                <label class="field"><span>司机</span><select name="driverName" id="dispatchDriverFilter"><option value="">全部司机</option></select></label>
+                <label class="field"><span>车牌</span><select name="plateNo" id="dispatchVehicleFilter"><option value="">全部车辆</option></select></label>
+                <label class="field"><span>派单状态</span><select name="dispatchStatus"><option value="">全部状态</option><option>待派单</option><option>已派单</option><option>运输中</option><option>已完成</option><option>取消</option></select></label>
+              </div>
+              <div class="query-footer"><span class="selection-summary" id="dispatchSelectedText">已选择 0 条派单</span><div class="action-bar">
+                <button class="btn primary" type="submit">查找 / 刷新</button><button class="btn accent" id="addDispatchBtn" type="button">新增派单</button><button class="btn primary" id="dispatchMoreBtn" type="button">更多功能</button>
+                <div class="more-menu" id="dispatchMoreMenu"><button id="exportDispatchBtn" type="button">导出派单台账</button><button id="batchDispatchStatusBtn" type="button">批量更新状态</button></div>
+              </div></div>
+            </form>
+
+            <section class="table-card" aria-label="派单列表"><div class="table-summary"><div><strong>派单列表</strong><span id="dispatchResultText">司机、车辆及运输节点实时跟踪</span></div><span class="draft-badge" id="dispatchActiveBadge">运输中 0</span></div>
+              <div class="table-wrap"><table><thead><tr>
+                <th class="check-col"><label class="checkbox-label"><input id="dispatchSelectAll" type="checkbox" />全选</label></th><th>运单号</th><th>线路名称</th><th>起运地</th><th>目的地</th><th>派单时间</th><th>司机姓名</th><th>联系电话</th><th>车牌</th><th>派单状态</th><th>当前节点</th><th>操作</th>
+              </tr></thead><tbody id="dispatchBody"></tbody></table></div>
+            </section>
+            <footer class="pagination" aria-label="派单列表分页"><label>每页条数<select id="dispatchPageSize"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select></label><div class="page-controls"><button id="dispatchPrevPage" type="button" disabled>上一页</button><button class="page-current" id="dispatchCurrentPage" type="button">1</button><button id="dispatchNextPage" type="button" disabled>下一页</button><label>跳至<input id="dispatchPageJump" type="number" min="1" value="1" />页</label><span class="total-records" id="dispatchTotalText">共 0 条记录</span></div></footer>
+
+            <dialog class="add-dialog vehicle-dialog dispatch-dialog" id="dispatchDialog"><form id="dispatchForm">
+              <header class="vehicle-dialog-header"><div><strong>新建派单</strong><span>选择已有运单并分配司机、车辆，提交后推送至司机微信小程序</span></div><button aria-label="关闭" class="icon-btn" id="closeDispatchFormBtn" type="button">×</button></header>
+              <div class="driver-form-body"><section class="driver-form-section"><h3>运单与线路</h3><div class="form-grid">
+                <label class="field">选择运单<select name="waybillId" id="dispatchWaybillSelect" required><option value="">请选择已有运单</option></select></label><label class="field">固定线路<input id="dispatchRouteName" readonly /></label><label class="field">起运地<input id="dispatchOrigin" readonly /></label><label class="field">目的地<input id="dispatchDestination" readonly /></label><label class="field">装卸地址<input id="dispatchLoadAddress" readonly /></label><label class="field">箱信息<input id="dispatchBoxes" readonly /></label><label class="field">预估收入<input id="dispatchRevenue" readonly /></label><label class="field">司机提成<input id="dispatchCommission" readonly /></label>
+              </div></section><section class="driver-form-section"><h3>调度安排</h3><div class="form-grid">
+                <label class="field">司机<select name="driverId" id="dispatchDriverSelect" required><option value="">请选择司机</option></select></label><label class="field">车辆<select name="vehicleId" id="dispatchVehicleSelect" required><option value="">请选择车辆</option></select></label><label class="field">派单备注<input name="note" placeholder="请输入派单备注" /></label>
+              </div></section><div class="push-note"><span class="push-note-icon">↗</span><div><strong>提交派单后自动推送</strong><small>司机将在微信小程序收到运单、线路、箱信息和节点上报任务。</small></div></div></div>
+              <div class="form-actions"><button class="btn quiet" id="cancelDispatchFormBtn" type="button">取消</button><button class="btn primary" type="submit">派单并推送</button></div>
+            </form></dialog>
+
+            <dialog class="add-dialog dispatch-detail-dialog" id="dispatchDetailDialog"><header class="vehicle-dialog-header"><div><strong>派单详情</strong><span id="dispatchDetailSubTitle">运输轨迹与现场资料</span></div><button aria-label="关闭" class="icon-btn" id="closeDispatchDetailBtn" type="button">×</button></header><div id="dispatchDetailContent" class="dispatch-detail-content"></div></dialog>
+            <dialog class="confirm-dialog" id="revokeDispatchDialog"><div class="confirm-icon" aria-hidden="true">!</div><h2>撤销派单</h2><p id="revokeDispatchText">未开始提货前可以撤销派单，司机小程序单据将同步回收。</p><div class="confirm-actions"><button class="btn quiet" id="cancelRevokeDispatchBtn" type="button">取消</button><button class="btn danger" id="confirmRevokeDispatchBtn" type="button">确认撤销</button></div></dialog>
+          </section>
+
+          <section class="page-view" id="vehiclePage">
+            <div class="vehicle-dashboard" id="vehicleReminderCards"></div>
+
+            <form class="query-panel" id="vehicleQueryForm">
+              <div class="query-grid vehicle-query-grid">
+                <label class="field">
+                  <span>车牌号</span>
+                  <input type="text" name="plateNo" placeholder="请输入车牌号" />
+                </label>
+                <label class="field">
+                  <span>车辆状态</span>
+                  <select name="vehicleState">
+                    <option value="">全部状态</option>
+                    <option>在用</option>
+                    <option>停用</option>
+                    <option>报废</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>到期预警天数</span>
+                  <input type="number" name="warningDays" min="1" value="30" />
+                </label>
+                <div class="query-actions-inline">
+                  <button class="btn primary" type="submit">查询 / 刷新</button>
+                  <button class="btn accent" type="button" id="addVehicleBtn">新增车辆</button>
+                  <button class="btn primary" type="button" id="messageAlertBtn">消息提醒</button>
+                </div>
+              </div>
+            </form>
+
+            <section class="vehicle-module active" id="archivesModule">
+              <section class="table-card" aria-label="车辆档案列表">
+                <div class="table-summary">
+                  <div>
+                    <strong>车辆档案列表</strong>
+                    <span id="vehicleResultText">按车牌号、车辆状态筛选车辆档案</span>
+                  </div>
+                  <span class="draft-badge">附件归档</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>车牌号码</th>
+                        <th>车辆类型</th>
+                        <th>车架号</th>
+                        <th>发动机号</th>
+                        <th>营运证号</th>
+                        <th>车辆所属</th>
+                        <th>司机信息</th>
+                        <th>车辆状态</th>
+                        <th>审验到期</th>
+                        <th>保险到期</th>
+                        <th>到期状态</th>
+                        <th>附件资料</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="vehicleBody"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <footer class="pagination vehicle-pagination" aria-label="车辆档案分页">
+                <label>
+                  每页条数
+                  <select id="vehiclePageSize">
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                  </select>
+                </label>
+                <div class="page-controls" aria-label="车辆列表分页控件">
+                  <button id="vehiclePrevPage" type="button" disabled>上一页</button>
+                  <button id="vehicleCurrentPage" class="page-current" type="button">1</button>
+                  <button id="vehicleNextPage" type="button" disabled>下一页</button>
+                  <label>
+                    跳至
+                    <input id="vehiclePageJump" type="number" min="1" value="1" />
+                    页
+                  </label>
+                </div>
+              </footer>
+
+              <dialog class="add-dialog vehicle-dialog" id="vehicleDialog">
+                <form id="vehicleForm">
+                  <header class="vehicle-dialog-header">
+                    <div>
+                      <strong id="vehicleFormTitle">新增车辆档案</strong>
+                      <span>支持行驶证、营运证等附件上传归档</span>
+                    </div>
+                    <button aria-label="关闭" class="icon-btn" id="closeVehicleFormBtn" type="button">×</button>
+                  </header>
+                  <div class="form-grid">
+                    <label class="field">车牌号码<input name="plateNo" required /></label>
+                    <label class="field">驾驶员<input name="driver" required /></label>
+                    <label class="field">所属车队<input name="fleet" placeholder="请输入所属车队" /></label>
+                    <label class="field">车队名称<input name="fleetName" placeholder="请输入车队名称" /></label>
+                    <label class="field">发动机号<input name="engineNo" required /></label>
+                    <label class="field">整备质量（吨）<input name="curbWeight" type="number" min="0" step="0.01" /></label>
+                    <label class="field">百公里油耗（升）<input name="fuelConsumption" type="number" min="0" step="0.01" /></label>
+                    <label class="field">核定载质量（吨）<input name="ratedLoad" type="number" min="0" step="0.01" /></label>
+                    <label class="field">车辆登记证号<input name="registrationCertNo" /></label>
+                    <label class="field">车辆类型<input name="vehicleType" required /></label>
+                    <label class="field">车辆技术等级<input name="technicalLevel" placeholder="例如：一级" /></label>
+                    <label class="field">车辆技术等级有效期<input name="technicalLevelExpiry" type="date" /></label>
+                    <label class="field">行驶证号<input name="drivingLicenseNo" /></label>
+                    <label class="field">行驶证有效期<input name="drivingLicenseExpiry" type="date" /></label>
+                    <label class="field">营运证号<input name="permitNo" required /></label>
+                    <label class="field">营运证有效期<input name="operatingPermitExpiry" type="date" /></label>
+                    <label class="field">商业险单号<input name="commercialInsuranceNo" /></label>
+                    <label class="field">商业险有效期<input name="commercialInsuranceExpiry" type="date" /></label>
+                    <label class="field">强制险单号<input name="mandatoryInsuranceNo" /></label>
+                    <label class="field">强制险有效期<input name="mandatoryInsuranceExpiry" type="date" /></label>
+                    <label class="field">货物险单号<input name="cargoInsuranceNo" /></label>
+                    <label class="field">货物险有效期<input name="cargoInsuranceExpiry" type="date" /></label>
+                    <label class="field">
+                      车辆所属
+                      <select name="ownership">
+                        <option>自有</option>
+                        <option>外协</option>
+                      </select>
+                    </label>
+                    <label class="field">
+                      车辆状态
+                      <select name="vehicleState">
+                        <option>在用</option>
+                        <option>停用</option>
+                        <option>报废</option>
+                      </select>
+                    </label>
+                    <label class="field">车架号<input name="vin" required /></label>
+                    <label class="field">审验到期日期<input name="inspectionDue" type="date" required /></label>
+                    <label class="field">保险到期日期<input name="insuranceDue" type="date" required /></label>
+                    <label class="field field-wide">备注<textarea name="remark" rows="2" placeholder="请输入备注"></textarea></label>
+                    <label class="field file-field">行驶证扫描件<input name="drivingLicense" type="file" /></label>
+                    <label class="field file-field">营运证照片<input name="operatingPermit" type="file" /></label>
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn quiet" id="cancelVehicleFormBtn" type="button">取消</button>
+                    <button class="btn primary" type="submit">保存车辆</button>
+                  </div>
+                </form>
+              </dialog>
+
+              <dialog class="confirm-dialog" id="deleteVehicleDialog">
+                <div class="confirm-icon" aria-hidden="true">!</div>
+                <h2>删除车辆档案</h2>
+                <p id="deleteVehicleText">删除后该车辆关联的审验和保单记录也会一并移除。</p>
+                <div class="confirm-actions">
+                  <button class="btn quiet" id="cancelDeleteVehicleBtn" type="button">取消</button>
+                  <button class="btn danger" id="confirmDeleteVehicleBtn" type="button">确认删除</button>
+                </div>
+              </dialog>
+            </section>
+
+            <section class="vehicle-detail-panel hidden-panel" id="vehicleDetailPanel">
+              <div class="detail-header">
+                <div>
+                  <span>车辆详情</span>
+                  <strong id="detailVehicleTitle">浙B·K7812</strong>
+                  <small id="detailVehicleMeta">集装箱牵引车 / 在用</small>
+                </div>
+                <button class="btn quiet" id="backToVehicleListBtn" type="button">返回列表</button>
+              </div>
+
+              <div class="detail-tabs" role="tablist" aria-label="车辆详情标签">
+                <button class="detail-tab active" data-module="detailBase" type="button">车辆基础信息</button>
+                <button class="detail-tab" data-module="inspection" type="button">审验管理</button>
+                <button class="detail-tab" data-module="insurance" type="button">保险管理</button>
+                <button class="detail-tab" data-module="reminders" type="button">到期提醒</button>
+              </div>
+
+              <section class="vehicle-module" id="detailBaseModule">
+                <section class="table-card" aria-label="车辆基础信息详情">
+                  <div class="table-summary">
+                    <div>
+                      <strong>车辆基础信息</strong>
+                      <span>查看车辆基础信息、证件有效期、保险单号和附件资料</span>
+                    </div>
+                  </div>
+                  <div class="detail-grid" id="vehicleDetailBase"></div>
+                </section>
+              </section>
+
+              <section class="vehicle-module" id="inspectionModule">
+              <section class="form-card">
+                <div class="section-title">
+                  <strong>审验信息登记</strong>
+                  <span>维护车辆年检、营运证年审到期日期和历史流水</span>
+                </div>
+                <div class="form-grid">
+                  <label class="field">车牌号码<input value="浙B·K7812" /></label>
+                  <label class="field">
+                    审验类型
+                    <select>
+                      <option>车辆年检</option>
+                      <option>营运证年审</option>
+                    </select>
+                  </label>
+                  <label class="field">上次审验日期<input type="date" value="2025-10-18" /></label>
+                  <label class="field">下次审验到期日期<input type="date" value="2026-10-18" /></label>
+                  <label class="field">审验机构<input value="宁波机动车检测中心" /></label>
+                  <label class="field">审验费用<input value="680" /></label>
+                  <label class="field">
+                    审验结果
+                    <select>
+                      <option>通过</option>
+                      <option>待复检</option>
+                      <option>未通过</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              <section class="table-card" aria-label="审验记录台账">
+                <div class="table-summary">
+                  <div>
+                    <strong>审验记录台账</strong>
+                    <span>保存历史审验记录，支持查看过往审验流水</span>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>车牌号码</th>
+                        <th>审验类型</th>
+                        <th>上次审验日期</th>
+                        <th>下次审验到期日期</th>
+                        <th>审验机构</th>
+                        <th>审验费用</th>
+                        <th>审验结果</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inspectionBody"></tbody>
+                  </table>
+                </div>
+              </section>
+            </section>
+
+              <section class="vehicle-module" id="insuranceModule">
+              <section class="form-card">
+                <div class="section-title">
+                  <strong>保险保单录入</strong>
+                  <span>一台车可维护交强险、商业险、承运人责任险等多条保单</span>
+                </div>
+                <div class="form-grid">
+                  <label class="field">车牌号码<input value="浙B·K7812" /></label>
+                  <label class="field">
+                    险种
+                    <select>
+                      <option>交强险</option>
+                      <option>商业险</option>
+                      <option>承运人责任险</option>
+                    </select>
+                  </label>
+                  <label class="field">保险公司<input value="太平洋财险宁波分公司" /></label>
+                  <label class="field">保单号<input value="CPIC20260916001" /></label>
+                  <label class="field">投保金额<input value="1000000" /></label>
+                  <label class="field">保险到期日期<input type="date" value="2026-10-05" /></label>
+                  <label class="field">保费<input value="8600" /></label>
+                  <label class="field">保单起止时间<input value="2025-10-06 至 2026-10-05" /></label>
+                  <label class="field file-field">保单附件<input type="file" /></label>
+                </div>
+              </section>
+
+              <section class="table-card" aria-label="保险保单列表">
+                <div class="table-summary">
+                  <div>
+                    <strong>多保单列表</strong>
+                    <span>同一车辆支持多险种保单维护和电子档留存</span>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>车牌号码</th>
+                        <th>险种</th>
+                        <th>保险公司</th>
+                        <th>保单号</th>
+                        <th>投保金额</th>
+                        <th>保险到期日期</th>
+                        <th>保费</th>
+                        <th>保单起止时间</th>
+                        <th>附件</th>
+                      </tr>
+                    </thead>
+                    <tbody id="insuranceBody"></tbody>
+                  </table>
+                </div>
+              </section>
+            </section>
+
+              <section class="vehicle-module" id="remindersModule">
+              <section class="table-card" aria-label="到期提醒列表">
+                <div class="table-summary">
+                  <div>
+                    <strong>到期提醒</strong>
+                    <span id="reminderText">根据审验到期日、保险到期日提前 30 天预警</span>
+                  </div>
+                  <span class="draft-badge warning-badge">优先处理已逾期车辆</span>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>车牌号码</th>
+                        <th>司机信息</th>
+                        <th>保险到期日期</th>
+                        <th>审验到期日期</th>
+                        <th>到期分类</th>
+                        <th>处理建议</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reminderBody"></tbody>
+                  </table>
+                </div>
+              </section>
+              </section>
+            </section>
+          </section>
+
+          <section class="page-view" id="driverPage">
+            <div class="vehicle-dashboard driver-dashboard" id="driverSummaryCards"></div>
+
+            <form class="query-panel" id="driverQueryForm">
+              <div class="query-grid driver-query-grid">
+                <label class="field">
+                  <span>司机姓名</span>
+                  <input name="driverName" placeholder="请输入司机姓名" />
+                </label>
+                <label class="field">
+                  <span>身份证号</span>
+                  <input name="idCard" placeholder="请输入身份证号" />
+                </label>
+                <label class="field">
+                  <span>联系电话</span>
+                  <input name="phone" placeholder="请输入联系电话" />
+                </label>
+                <label class="field">
+                  <span>司机状态</span>
+                  <select name="driverState">
+                    <option value="">全部状态</option>
+                    <option>在职</option>
+                    <option>离职</option>
+                    <option>待入职</option>
+                    <option>停岗</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>证件到期类型</span>
+                  <select name="expiryType">
+                    <option value="">全部类型</option>
+                    <option>驾驶证即将到期</option>
+                    <option>从业资格证即将到期</option>
+                    <option>已过期</option>
+                  </select>
+                </label>
+              </div>
+              <div class="query-footer">
+                <span class="selection-summary" id="driverSelectedText">已选择 0 名司机</span>
+                <div class="action-bar">
+                  <button class="btn primary" type="submit">查找 / 刷新</button>
+                  <button class="btn accent" id="addDriverBtn" type="button">新增</button>
+                  <button class="btn primary" id="driverMoreBtn" type="button">更多功能</button>
+                  <div class="more-menu" id="driverMoreMenu">
+                    <button id="exportDriverBtn" type="button">导出司机档案</button>
+                    <button id="batchDriverStatusBtn" type="button">批量更新状态</button>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <section class="table-card" aria-label="司机信息列表">
+              <div class="table-summary">
+                <div>
+                  <strong>司机信息列表</strong>
+                  <span id="driverResultText">司机档案、证件状态及所属车队</span>
+                </div>
+                <span class="draft-badge" id="driverActiveBadge">在职 0</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="check-col"><label class="checkbox-label"><input id="driverSelectAll" type="checkbox" />全选</label></th>
+                      <th>司机姓名</th>
+                      <th>性别</th>
+                      <th>联系电话</th>
+                      <th>身份证号</th>
+                      <th>司机类型</th>
+                      <th>司机状态</th>
+                      <th>所属车队</th>
+                      <th>入职日期</th>
+                      <th>准驾车型</th>
+                      <th>驾驶证到期</th>
+                      <th>从业资格证到期</th>
+                      <th>证件状态</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="driverBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <footer class="pagination" aria-label="司机档案分页">
+              <label>
+                每页条数
+                <select id="driverPageSize">
+                  <option value="10" selected>10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+              <div class="page-controls">
+                <button id="driverPrevPage" type="button" disabled>上一页</button>
+                <button class="page-current" id="driverCurrentPage" type="button">1</button>
+                <button id="driverNextPage" type="button" disabled>下一页</button>
+                <label>跳至<input id="driverPageJump" type="number" min="1" value="1" />页</label>
+                <span class="total-records" id="driverTotalText">共 0 条记录</span>
+              </div>
+            </footer>
+
+            <dialog class="add-dialog vehicle-dialog driver-dialog" id="driverDialog">
+              <form id="driverForm">
+                <header class="vehicle-dialog-header">
+                  <div>
+                    <strong id="driverFormTitle">新增司机档案</strong>
+                    <span>建立司机基础资料、证件及结算信息</span>
+                  </div>
+                  <button aria-label="关闭" class="icon-btn" id="closeDriverFormBtn" type="button">×</button>
+                </header>
+                <div class="driver-form-body">
+                  <section class="driver-form-section">
+                    <h3>基础信息</h3>
+                    <div class="form-grid">
+                      <label class="field">姓名<input name="name" required /></label>
+                      <label class="field">性别<select name="gender"><option>男</option><option>女</option></select></label>
+                      <label class="field">身份证号码<input name="idCard" required /></label>
+                      <label class="field">手机号<input name="phone" required /></label>
+                      <label class="field">住址<input name="address" required /></label>
+                      <label class="field">紧急联系人<input name="emergencyContact" required /></label>
+                      <label class="field">紧急联系电话<input name="emergencyPhone" required /></label>
+                      <label class="field">入职日期<input name="entryDate" type="date" required /></label>
+                      <label class="field">司机类型<select name="driverType"><option>自有司机</option><option>外协司机</option></select></label>
+                      <label class="field">司机状态<select name="driverState"><option>在职</option><option>离职</option><option>待入职</option><option>停岗</option></select></label>
+                      <label class="field">所属车队<input name="fleet" required /></label>
+                    </div>
+                  </section>
+                  <section class="driver-form-section">
+                    <h3>驾驶证</h3>
+                    <div class="form-grid">
+                      <label class="field">驾驶证号<input name="licenseNo" required /></label>
+                      <label class="field">准驾车型<input name="licenseClass" value="A2" required /></label>
+                      <label class="field">发证日期<input name="licenseIssueDate" type="date" required /></label>
+                      <label class="field">有效期截止日期<input name="licenseExpiry" type="date" required /></label>
+                      <label class="field file-field">驾驶证附件<input name="licenseAttachment" type="file" /></label>
+                    </div>
+                  </section>
+                  <section class="driver-form-section">
+                    <h3>道路运输从业资格证</h3>
+                    <div class="form-grid">
+                      <label class="field">资格证号<input name="qualificationNo" required /></label>
+                      <label class="field">有效期截止日期<input name="qualificationExpiry" type="date" required /></label>
+                      <label class="field file-field">证件附件<input name="qualificationAttachment" type="file" /></label>
+                    </div>
+                  </section>
+                  <section class="driver-form-section">
+                    <h3>其他信息</h3>
+                    <div class="form-grid">
+                      <label class="field">银行卡号<input name="bankCard" /></label>
+                      <label class="field">开户银行<input name="bankName" /></label>
+                      <label class="field">备注<input name="remark" /></label>
+                    </div>
+                  </section>
+                </div>
+                <div class="form-actions">
+                  <button class="btn quiet" id="cancelDriverFormBtn" type="button">取消</button>
+                  <button class="btn primary" type="submit">保存司机</button>
+                </div>
+              </form>
+            </dialog>
+
+            <dialog class="confirm-dialog" id="deleteDriverDialog">
+              <div class="confirm-icon" aria-hidden="true">!</div>
+              <h2>删除司机档案</h2>
+              <p id="deleteDriverText">删除后该司机档案将无法恢复。</p>
+              <div class="confirm-actions">
+                <button class="btn quiet" id="cancelDeleteDriverBtn" type="button">取消</button>
+                <button class="btn danger" id="confirmDeleteDriverBtn" type="button">确认删除</button>
+              </div>
+            </dialog>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="add-dialog waybill-dialog" id="addDialog">
+      <form id="waybillForm">
+        <header class="vehicle-dialog-header">
+          <div>
+            <strong>新增运单</strong>
+            <span>录入业务、派车及费用信息，保存后进入运单台账</span>
+          </div>
+          <button aria-label="关闭" class="icon-btn" id="closeWaybillFormBtn" type="button">×</button>
+        </header>
+
+        <div class="waybill-form-body">
+          <section class="waybill-form-section">
+            <div class="waybill-section-title"><span class="section-index">01</span><div><h3>业务信息</h3><p>客户委托、箱货资料和回单要求</p></div></div>
+            <div class="waybill-form-grid">
+              <label class="field required-field">运单号<input name="waybillNo" required /></label>
+              <label class="field required-field">接单日期<input name="orderDate" type="date" required /></label>
+              <label class="field">固定线路<select name="routeId" id="waybillRouteSelect"><option value="">请选择固定线路</option></select></label>
+              <label class="field required-field">客户名称<input name="customerName" list="customerOptions" placeholder="请选择或输入客户" required /><datalist id="customerOptions"><option value="宁波远海供应链有限公司"></option><option value="上海嘉航国际物流有限公司"></option><option value="杭州联贸进出口有限公司"></option><option value="苏州新程电子科技有限公司"></option></datalist></label>
+
+              <label class="field">提单号<input name="billNo" /></label>
+              <label class="field">箱型<select name="boxType"><option>40HQ</option><option>40GP</option><option>20GP</option><option>20GP*2</option><option>45HQ</option></select></label>
+              <label class="field">箱量<input name="boxQuantity" type="number" min="1" value="1" /></label>
+              <label class="field inline-checks-field"><span>业务状态</span><span class="inline-checks"><label><input name="dispatchable" type="checkbox" checked />可调度</label><label><input name="needReceipt" type="checkbox" />需要回单</label><label><input name="receivedReceipt" type="checkbox" />收到回单</label></span></label>
+              <label class="field">回单日期<input name="receiptDate" type="date" /></label>
+
+              <label class="field">箱号 1<input name="boxNo1" /></label>
+              <label class="field">封号 1<input name="sealNo1" /></label>
+              <label class="field">箱号 2<input name="boxNo2" /></label>
+              <label class="field">封号 2<input name="sealNo2" /></label>
+
+              <label class="field">提箱点 1<input name="pickupPoint1" /></label>
+              <label class="field">提箱点 2<input name="pickupPoint2" /></label>
+              <label class="field">还箱点<input name="returnPoint" /></label>
+              <label class="field">审核状态<input name="auditState" value="草拟" readonly /></label>
+
+              <label class="field field-span-2 required-field">装卸地址<input name="loadAddress" placeholder="请输入装货及卸货地址" required /></label>
+              <label class="field">代收款 1（元）<input name="collectionAmount1" type="number" min="0" step="0.01" value="0" /></label>
+              <label class="field">代收款 2（元）<input name="collectionAmount2" type="number" min="0" step="0.01" value="0" /></label>
+              <label class="field field-span-2">备注<input name="remark" /></label>
+              <label class="field field-span-2">备注 1<input name="remark1" /></label>
+            </div>
+          </section>
+
+          <section class="waybill-form-section">
+            <div class="waybill-section-title cyan"><span class="section-index">02</span><div><h3>派车信息</h3><p>选择承运商、车辆和司机，可在保存后进入派单</p></div></div>
+            <div class="waybill-form-grid">
+              <label class="field">派车类型<select name="dispatchType"><option>公司派车</option><option>外协派车</option><option>临时派车</option></select></label>
+              <label class="field">承运商<select name="carrier" id="waybillCarrier"><option value="">请选择承运商</option><option>甬港联运车队</option><option>沪甬通达运输</option><option>杭甬快线车队</option><option>苏沪集运物流</option></select></label>
+              <label class="field">车牌号<select name="plateNo" id="waybillVehicle"><option value="">请选择车辆</option></select></label>
+              <label class="field">司机<select name="driverId" id="waybillDriver"><option value="">请选择司机</option></select></label>
+              <label class="field">派车日期<input name="dispatchDate" type="date" /></label>
+              <label class="field inline-checks-field"><span>到货情况</span><span class="inline-checks"><label><input name="arrived" type="checkbox" />是否到货</label></span></label>
+              <label class="field">到货日期<input name="arrivalDate" type="date" /></label>
+            </div>
+          </section>
+
+          <section class="waybill-form-section fee-section" data-fee-section="receivable">
+            <div class="waybill-section-heading"><div class="waybill-section-title orange"><span class="section-index">03</span><div><h3>应收费用</h3><p>向客户结算的收入项目</p></div></div><div class="fee-tools"><button class="btn quiet add-fee-row" data-fee-type="receivable" type="button">＋ 添加费用</button><button class="text-action default-fee" data-fee-type="receivable" type="button">载入线路费用</button></div></div>
+            <div class="fee-table-wrap"><table class="fee-table"><thead><tr><th>结算对象</th><th>单位名称</th><th>费用类型</th><th>数量</th><th>单价</th><th>金额</th><th>已收金额</th><th>未销金额</th><th>需开票</th><th>操作</th></tr></thead><tbody id="receivableFeeBody"></tbody></table></div>
+          </section>
+
+          <section class="waybill-form-section fee-section" data-fee-section="payable">
+            <div class="waybill-section-heading"><div class="waybill-section-title cyan"><span class="section-index">04</span><div><h3>应付费用</h3><p>向承运商或司机结算的成本项目</p></div></div><div class="fee-tools"><button class="btn quiet add-fee-row" data-fee-type="payable" type="button">＋ 添加费用</button><button class="text-action default-fee" data-fee-type="payable" type="button">载入线路费用</button></div></div>
+            <div class="fee-table-wrap"><table class="fee-table"><thead><tr><th>结算对象</th><th>单位名称</th><th>费用类型</th><th>数量</th><th>单价</th><th>金额</th><th>已付金额</th><th>未付金额</th><th>需开票</th><th>操作</th></tr></thead><tbody id="payableFeeBody"></tbody></table></div>
+          </section>
+
+          <section class="profit-summary">
+            <div><span>应收金额</span><strong id="waybillReceivableTotal">¥0.00</strong></div>
+            <div><span>应付金额</span><strong id="waybillPayableTotal">¥0.00</strong></div>
+            <div class="profit-result"><span>预计利润</span><strong id="waybillProfitTotal">¥0.00</strong></div>
+          </section>
+        </div>
+
+        <footer class="waybill-form-actions">
+          <span class="form-tip">保存后审核状态默认为“草拟”</span>
+          <div><button class="btn quiet" id="cancelWaybillFormBtn" type="button">取消</button><button class="btn primary" type="submit">保存运单</button></div>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="dispatch-store.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#356ae6" />
+    <title>集卡司机端</title>
+    <link rel="stylesheet" href="mobile.css" />
+  </head>
+  <body>
+    <div class="phone-shell">
+      <header class="mobile-header" id="mobileHeader">
+        <div class="header-copy">
+          <span class="eyebrow" id="headerEyebrow">集卡司机端</span>
+          <h1 id="mobileTitle">接单</h1>
+        </div>
+        <button class="icon-button notification-button" id="notificationButton" type="button" aria-label="消息通知">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+          <span class="notification-dot"></span>
+        </button>
+      </header>
+
+      <main class="mobile-main">
+        <section class="mobile-view active" id="tasksView" data-title="接单">
+          <div class="welcome-panel">
+            <div>
+              <span class="welcome-label" id="todayText">今日</span>
+              <h2>早上好，<span id="welcomeName">赵师傅</span></h2>
+              <p>安全行车，准时送达每一程</p>
+            </div>
+            <div class="online-chip"><span></span>听单中</div>
+          </div>
+
+          <div class="task-overview" id="taskOverview"></div>
+
+          <div class="section-heading">
+            <div><h2>我的任务</h2><p id="taskSummary">任务状态已与调度后台同步</p></div>
+            <button class="text-button" id="refreshTasksButton" type="button">刷新</button>
+          </div>
+
+          <div class="filter-scroll" id="taskFilters" role="tablist" aria-label="任务状态筛选">
+            <button class="filter-chip active" data-filter="pending" type="button">待接单 <span id="pendingCount">0</span></button>
+            <button class="filter-chip" data-filter="active" type="button">进行中 <span id="activeCount">0</span></button>
+            <button class="filter-chip" data-filter="completed" type="button">已完成</button>
+            <button class="filter-chip" data-filter="all" type="button">全部</button>
+          </div>
+
+          <div class="task-list" id="taskList"></div>
+        </section>
+
+        <section class="mobile-view" id="ordersView" data-title="我的运单">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="orderSearch" type="search" placeholder="搜索运单号、线路或箱号" />
+          </div>
+          <div class="order-status-tabs" id="orderStatusTabs">
+            <button class="active" data-status="all" type="button">全部</button>
+            <button data-status="active" type="button">进行中</button>
+            <button data-status="completed" type="button">已完成</button>
+            <button data-status="cancelled" type="button">已取消</button>
+          </div>
+          <div class="order-list" id="orderList"></div>
+        </section>
+
+        <section class="mobile-view profile-view" id="profileView" data-title="个人中心">
+          <div class="profile-hero">
+            <div class="avatar" id="profileAvatar">赵</div>
+            <div class="profile-copy">
+              <div class="profile-name-line"><h2 id="profileName">赵亮</h2><span>已认证</span></div>
+              <p id="profileMeta">外协司机 · 临港协作车队</p>
+              <small id="profilePhone">139****6662</small>
+            </div>
+            <button class="profile-edit" id="switchDriverButton" type="button" aria-label="切换演示司机">切换</button>
+          </div>
+
+          <div class="income-card">
+            <div class="income-title"><span>本月预计提成</span><button id="toggleIncomeButton" type="button">显示</button></div>
+            <strong id="incomeAmount">¥ ****</strong>
+            <div class="income-stats" id="profileStats"></div>
+          </div>
+
+          <section class="profile-section">
+            <div class="section-heading compact"><div><h2>当前车辆</h2><p>调度分配车辆</p></div></div>
+            <div class="vehicle-card" id="profileVehicle"></div>
+          </section>
+
+          <section class="profile-section">
+            <div class="section-heading compact"><div><h2>证件资料</h2><p>到期前 30 天提醒</p></div></div>
+            <div class="document-list" id="documentList"></div>
+          </section>
+
+          <section class="menu-card">
+            <button type="button" data-menu-action="messages"><span class="menu-icon blue">信</span><span>消息通知</span><em id="messageBadge">2</em><b>›</b></button>
+            <button type="button" data-menu-action="service"><span class="menu-icon orange">服</span><span>联系调度</span><b>›</b></button>
+            <button type="button" data-menu-action="settings"><span class="menu-icon gray">设</span><span>设置</span><b>›</b></button>
+          </section>
+          <p class="version-text">集卡司机端 · 原型版 1.0</p>
+        </section>
+
+        <section class="detail-view" id="detailView" aria-hidden="true">
+          <header class="detail-nav">
+            <button class="icon-button" id="backFromDetail" type="button" aria-label="返回">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <strong>接单详情</strong>
+            <button class="icon-button" id="detailMoreButton" type="button" aria-label="更多">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+            </button>
+          </header>
+          <div class="detail-scroll" id="detailContent"></div>
+          <div class="detail-action-bar" id="detailActionBar"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" id="bottomNav" aria-label="主导航">
+        <button class="active" data-view="tasks" type="button">
+          <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4zM8 7V5h8v2M8 12h8"/></svg></span><span>接单</span>
+        </button>
+        <button data-view="orders" type="button">
+          <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg></span><span>运单</span>
+        </button>
+        <button data-view="profile" type="button">
+          <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>我的</span>
+        </button>
+      </nav>
+
+      <dialog class="bottom-sheet" id="rejectDialog">
+        <form id="rejectForm">
+          <div class="sheet-handle"></div>
+          <header><div><strong>拒绝本次派单</strong><span>拒单原因将同步给调度员</span></div><button class="sheet-close" value="cancel" formmethod="dialog" type="button">×</button></header>
+          <div class="reason-options">
+            <label><input type="radio" name="reason" value="车辆故障" required /><span>车辆故障</span></label>
+            <label><input type="radio" name="reason" value="时间冲突" /><span>时间冲突</span></label>
+            <label><input type="radio" name="reason" value="身体不适" /><span>身体不适</span></label>
+            <label><input type="radio" name="reason" value="其他原因" /><span>其他原因</span></label>
+          </div>
+          <label class="sheet-field">补充说明<textarea name="remark" rows="3" placeholder="请补充说明（选填）"></textarea></label>
+          <button class="primary-action danger-action" type="submit">确认拒绝</button>
+        </form>
+      </dialog>
+
+      <dialog class="bottom-sheet" id="progressDialog">
+        <form id="progressForm">
+          <div class="sheet-handle"></div>
+          <header><div><strong id="progressTitle">更新运输节点</strong><span id="progressHint">操作后将实时同步至调度后台</span></div><button class="sheet-close" type="button">×</button></header>
+          <div class="next-node-card"><span>即将更新为</span><strong id="nextNodeText">已提货</strong></div>
+          <label class="sheet-field">现场说明<textarea name="remark" rows="3" placeholder="填写现场情况或异常说明"></textarea></label>
+          <label class="upload-box">
+            <input name="photos" type="file" accept="image/*" multiple />
+            <span class="upload-icon">＋</span><strong>上传现场照片</strong><small id="uploadHint">支持从相册选择或拍照</small>
+          </label>
+          <button class="primary-action" type="submit">确认上报</button>
+        </form>
+      </dialog>
+
+      <dialog class="bottom-sheet compact-sheet" id="driverDialog">
+        <div class="sheet-handle"></div>
+        <header><div><strong>切换演示司机</strong><span>用于查看不同司机的派单数据</span></div><button class="sheet-close" type="button">×</button></header>
+        <div class="driver-options" id="driverOptions"></div>
+      </dialog>
+
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+
+    <script src="dispatch-store.js"></script>
+    <script src="mobile.js"></script>
+  </body>
+</html>
