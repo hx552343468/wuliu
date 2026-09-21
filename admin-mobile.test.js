@@ -21,5 +21,22 @@ assert.match(script, /function openDetail\(/);
 assert.match(script, /moduleSearch.*addEventListener\("input"/);
 assert.match(script, /classList\.add\("subpage-open"\)/);
 assert.match(html, /vendor\/lucide\.min\.js/);
+assert.match(html, /data-open-module="driver"[\s\S]*?data-lucide="user-round"[\s\S]*?司机档案/);
+assert.doesNotMatch(html, /data-lucide="badge-user"/);
+assert.match(html, /id="managerEntryView"/);
+assert.match(html, /id="managerEntryForm"/);
+
+for (const moduleName of ["waybill", "route", "dispatch", "auto", "vehicle", "driver", "customer"]) {
+  assert.match(script, new RegExp(`openEntry\\(moduleName\\)[\\s\\S]*${moduleName}`), `缺少 ${moduleName} 新增入口`);
+}
+
+assert.match(script, /function waybillEntryMarkup\(/);
+assert.match(script, /function dispatchEntryMarkup\(/);
+assert.match(script, /function autoEntryMarkup\(/);
+assert.match(script, /function createMobileRecord\(/);
+assert.match(script, /function saveEntry\(/);
+assert.match(script, /updateWaybillCustomer/);
+assert.match(script, /updateDispatchSummary/);
+assert.match(script, /container-logistics-manager-mobile-records-v1/);
 
 console.log("admin mobile tests passed");

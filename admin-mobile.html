@@ -34,7 +34,7 @@
               <button data-open-module="dispatch" type="button"><span class="module-icon cyan"><i data-lucide="send"></i></span><strong>派单列表</strong><small>2 条待执行</small></button>
               <button data-open-module="auto" type="button"><span class="module-icon orange"><i data-lucide="wand-sparkles"></i></span><strong>自动派单</strong><small>自动执行中</small></button>
               <button data-open-module="vehicle" type="button"><span class="module-icon green"><i data-lucide="truck"></i></span><strong>车辆档案</strong><small>2 台自营</small></button>
-              <button data-open-module="driver" type="button"><span class="module-icon indigo"><i data-lucide="badge-user"></i></span><strong>司机档案</strong><small>5 名司机</small></button>
+              <button data-open-module="driver" type="button"><span class="module-icon indigo"><i data-lucide="user-round"></i></span><strong>司机档案</strong><small>5 名司机</small></button>
               <button data-open-module="customer" type="button"><span class="module-icon rose"><i data-lucide="building-2"></i></span><strong>客户管理</strong><small>6 家客户</small></button>
               <button data-open-module="reminder" type="button"><span class="module-icon yellow"><i data-lucide="shield-alert"></i></span><strong>到期提醒</strong><small>2 项待处理</small></button>
             </div>
@@ -87,6 +87,14 @@
         <section class="detail-view" id="managerDetailView" aria-hidden="true">
           <header class="subpage-header"><button class="subpage-back" id="detailBackButton" type="button" aria-label="返回列表"><i data-lucide="chevron-left"></i></button><div><span>业务详情</span><strong id="detailTitle">详情</strong></div><button class="subpage-action" id="detailActionButton" type="button"><i data-lucide="ellipsis"></i></button></header>
           <div class="detail-scroll" id="managerDetailContent"></div>
+        </section>
+
+        <section class="entry-view" id="managerEntryView" aria-hidden="true">
+          <form id="managerEntryForm">
+            <header class="subpage-header entry-header"><button class="subpage-back" id="entryBackButton" type="button" aria-label="返回列表"><i data-lucide="chevron-left"></i></button><div><span id="entryEyebrow">业务建档</span><strong id="entryTitle">新增</strong></div><span aria-hidden="true"></span></header>
+            <div class="entry-scroll" id="managerEntryContent"></div>
+            <footer class="entry-actions"><button class="entry-cancel" id="entryCancelButton" type="button">取消</button><button class="entry-save" id="entrySaveButton" type="submit">保存</button></footer>
+          </form>
         </section>
       </main>
 
