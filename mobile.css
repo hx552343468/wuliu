@@ -490,9 +490,9 @@ button { cursor: pointer; }
   --surface-soft: #f8f8ff;
   --shadow-card: 0 10px 28px rgba(59, 54, 118, .07);
   --shadow-float: 0 14px 38px rgba(46, 43, 103, .14);
-  --scrollbar-track: #eeedff;
-  --scrollbar-thumb: #aaa5f8;
-  --scrollbar-thumb-hover: #756cf4;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(111, 108, 168, .2);
+  --scrollbar-thumb-hover: rgba(90, 79, 242, .34);
 }
 
 .mobile-view,
@@ -517,9 +517,10 @@ button { cursor: pointer; }
 .mobile-view::-webkit-scrollbar-thumb,
 .subpage-scroll::-webkit-scrollbar-thumb,
 .detail-scroll::-webkit-scrollbar-thumb {
-  border: 1px solid var(--scrollbar-track);
+  border: 1px solid transparent;
   border-radius: 5px;
   background: var(--scrollbar-thumb);
+  background-clip: padding-box;
 }
 
 .mobile-view::-webkit-scrollbar-thumb:hover,

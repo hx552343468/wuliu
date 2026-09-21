@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>集卡物流系统 - 运单管理</title>
+    <title>集卡物流系统 - 首页看板</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -23,7 +23,7 @@
               <span class="nav-icon">▣</span>
               集卡业务
             </button>
-            <button class="nav-child selected" data-page="vehicle-dashboard" type="button">调度看板</button>
+            <button class="nav-child selected" data-page="vehicle-dashboard" type="button">首页看板</button>
             <button class="nav-child" data-page="waybill" type="button">运单管理</button>
             <button class="nav-child" data-page="fixed-routes" type="button">固定线路管理</button>
             <button class="nav-child" data-page="dispatch-list" type="button">派单列表</button>
@@ -59,7 +59,7 @@
         <header class="topbar">
           <div>
             <p class="system-kicker" id="pageKicker">集卡业务 / 车辆状态监控</p>
-            <h1 id="pageTitle">调度看板</h1>
+            <h1 id="pageTitle">首页看板</h1>
           </div>
           <div class="topbar-actions">
             <a class="mobile-entry" href="mobile.html" target="_blank">司机移动端</a>
@@ -72,26 +72,45 @@
 
         <section class="workspace">
           <section class="page-view active" id="dashboardPage">
-            <div class="dashboard-heading">
-              <div>
-                <div class="dashboard-eyebrow">集卡业务 / 车辆状态监控 <span class="live-badge"><i></i>实时更新</span></div>
-                <h2>调度看板</h2>
-                <p>掌握自营车辆、当日任务与线路负荷，快速判断是否需要补派。</p>
-              </div>
-              <div class="dashboard-heading-actions">
-                <span id="dashboardUpdatedAt">数据更新于 2026-09-16 11:20</span>
-                <button class="btn quiet dashboard-refresh" id="refreshDashboardBtn" type="button"><span aria-hidden="true">↻</span>刷新数据</button>
-              </div>
+            <div class="dashboard-welcome-grid">
+              <section class="dashboard-welcome" aria-label="调度工作台欢迎区">
+                <div class="dashboard-welcome-copy">
+                  <div class="dashboard-eyebrow">运营中心 / 今日调度 <span class="live-badge"><i></i>实时更新</span></div>
+                  <h2>上午好，调度员</h2>
+                  <p>今天也要让每一台车，都跑在合适的线路上。</p>
+                  <div class="welcome-facts"><span>今日任务 <strong id="dashboardWelcomeTaskCount">0</strong></span><span>自营车辆 <strong id="dashboardWelcomeVehicleCount">0</strong></span><span>待处理 <strong id="dashboardWelcomePendingCount">0</strong></span></div>
+                </div>
+                <div class="dashboard-welcome-visual" aria-hidden="true"><span class="visual-card front">运力在线</span><span class="visual-card back">线路协同</span><i class="visual-route"></i></div>
+                <div class="dashboard-heading-actions">
+                  <span id="dashboardUpdatedAt">数据更新于 2026-09-16 11:20</span>
+                  <button class="btn quiet dashboard-refresh" id="refreshDashboardBtn" type="button"><i data-lucide="refresh-cw" class="dashboard-icon" aria-hidden="true"></i>刷新</button>
+                </div>
+              </section>
+              <section class="dashboard-quick-panel" aria-label="快捷入口">
+                <div class="quick-panel-heading"><strong>快捷入口</strong><span>常用调度操作</span></div>
+                <div class="quick-entry-grid">
+                  <button data-dashboard-action="vehicle-list" type="button"><span class="quick-entry-icon blue"><i data-lucide="truck" class="dashboard-icon" aria-hidden="true"></i></span><strong>车辆档案</strong></button>
+                  <button data-dashboard-action="dispatch-list" type="button"><span class="quick-entry-icon cyan"><i data-lucide="clipboard-list" class="dashboard-icon" aria-hidden="true"></i></span><strong>派单列表</strong></button>
+                  <button data-dashboard-action="pending-list" type="button"><span class="quick-entry-icon orange"><i data-lucide="clock-3" class="dashboard-icon" aria-hidden="true"></i></span><strong>待执行任务</strong></button>
+                  <button data-dashboard-action="route-list" type="button"><span class="quick-entry-icon purple"><i data-lucide="route" class="dashboard-icon" aria-hidden="true"></i></span><strong>固定线路</strong></button>
+                </div>
+              </section>
             </div>
 
             <section class="dashboard-section" aria-label="自营车辆状态总览">
-              <div class="dashboard-section-heading"><div><strong>自营车辆状态总览</strong><span>仅统计车辆所属为自有的车辆</span></div><button class="text-action" data-dashboard-action="vehicle-list" type="button">查看全部车辆 <b>›</b></button></div>
+              <div class="dashboard-section-heading"><div><strong>自营车辆状态总览</strong><span>仅统计车辆所属为自有的车辆</span></div><button class="text-action" data-dashboard-action="vehicle-list" type="button">查看全部车辆 <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button></div>
               <div class="dashboard-vehicle-stats" id="dashboardVehicleStats"></div>
+            </section>
+
+            <section class="dashboard-workbench-grid" aria-label="调度工作台">
+              <article class="workbench-card vehicle-workbench"><div class="workbench-card-heading"><span class="workbench-icon"><i data-lucide="truck" class="dashboard-icon" aria-hidden="true"></i></span><div><strong>车辆调度工作台</strong><small>自营运力状态</small></div><i data-lucide="chevron-right" class="dashboard-icon workbench-chevron" aria-hidden="true"></i></div><div class="workbench-card-body" id="dashboardWorkbenchVehicle"></div><button class="workbench-link" data-dashboard-action="vehicle-list" type="button">进入车辆管理 <i data-lucide="arrow-right" class="dashboard-icon" aria-hidden="true"></i></button></article>
+              <article class="workbench-card dispatch-workbench"><div class="workbench-card-heading"><span class="workbench-icon"><i data-lucide="clipboard-list" class="dashboard-icon" aria-hidden="true"></i></span><div><strong>派单工作台</strong><small>今日任务节点</small></div><i data-lucide="chevron-right" class="dashboard-icon workbench-chevron" aria-hidden="true"></i></div><div class="workbench-card-body" id="dashboardWorkbenchDispatch"></div><button class="workbench-link" data-dashboard-action="dispatch-list" type="button">进入派单列表 <i data-lucide="arrow-right" class="dashboard-icon" aria-hidden="true"></i></button></article>
+              <article class="workbench-card route-workbench"><div class="workbench-card-heading"><span class="workbench-icon"><i data-lucide="route" class="dashboard-icon" aria-hidden="true"></i></span><div><strong>线路运营工作台</strong><small>固定线路负荷</small></div><i data-lucide="chevron-right" class="dashboard-icon workbench-chevron" aria-hidden="true"></i></div><div class="workbench-card-body" id="dashboardWorkbenchRoute"></div><button class="workbench-link" data-dashboard-action="route-list" type="button">进入线路管理 <i data-lucide="arrow-right" class="dashboard-icon" aria-hidden="true"></i></button></article>
             </section>
 
             <div class="dashboard-main-grid">
               <section class="dashboard-section task-progress-panel" aria-label="今日任务进度">
-                <div class="dashboard-section-heading"><div><strong>今日任务进度</strong><span>按当日订单与派单节点统计</span></div><button class="text-action" data-dashboard-action="dispatch-list" type="button">查看派单 <b>›</b></button></div>
+                <div class="dashboard-section-heading"><div><strong>今日任务进度</strong><span>按当日订单与派单节点统计</span></div><button class="text-action" data-dashboard-action="dispatch-list" type="button">查看派单 <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button></div>
                 <div class="dashboard-task-content">
                   <div class="task-progress-score"><strong id="dashboardCompletionRate">0%</strong><span>任务完成率</span><div class="task-progress-track"><i id="dashboardCompletionBar"></i></div></div>
                   <div class="dashboard-task-metrics" id="dashboardTaskMetrics"></div>
@@ -104,7 +123,7 @@
             </div>
 
             <section class="dashboard-section dashboard-route-panel" aria-label="固定线路负荷">
-              <div class="dashboard-section-heading"><div><strong>固定线路今日负荷</strong><span>线路任务量与可调度运力的饱和度</span></div><button class="text-action" data-dashboard-action="route-list" type="button">线路配置 <b>›</b></button></div>
+              <div class="dashboard-section-heading"><div><strong>固定线路今日负荷</strong><span>线路任务量与可调度运力的饱和度</span></div><button class="text-action" data-dashboard-action="route-list" type="button">线路配置 <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button></div>
               <div class="route-load-list" id="dashboardRouteLoads"></div>
             </section>
 
@@ -114,7 +133,7 @@
                 <div class="dashboard-list" id="dashboardIdleVehicles"></div>
               </section>
               <section class="dashboard-section dashboard-list-panel" aria-label="待执行任务">
-                <div class="dashboard-section-heading"><div><strong>待执行任务</strong><span>尚未开始提货的今日任务</span></div><button class="text-action" data-dashboard-action="pending-list" type="button">查看全部 <b>›</b></button></div>
+                <div class="dashboard-section-heading"><div><strong>待执行任务</strong><span>尚未开始提货的今日任务</span></div><button class="text-action" data-dashboard-action="pending-list" type="button">查看全部 <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button></div>
                 <div class="dashboard-list" id="dashboardPendingTasks"></div>
               </section>
             </div>
@@ -1121,6 +1140,7 @@
       </form>
     </dialog>
 
+    <script src="vendor/lucide.min.js"></script>
     <script src="attachment-upload.js"></script>
     <script src="dispatch-store.js"></script>
     <script src="app.js"></script>

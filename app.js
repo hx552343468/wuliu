@@ -182,8 +182,8 @@ const pageViews = {
   driver: document.querySelector("#driverPage"),
 };
 const pageMeta = {
-  home: { title: "调度看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
-  "vehicle-dashboard": { title: "调度看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
+  home: { title: "首页看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
+  "vehicle-dashboard": { title: "首页看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
   waybill: { title: "运单管理", kicker: "运输调度 / 运单台账", view: "waybill" },
   "fixed-routes": { title: "固定线路管理", kicker: "集卡业务 / 固定线路", view: "route" },
   "dispatch-list": { title: "派单列表", kicker: "集卡业务 / 派单调度", view: "dispatch" },
@@ -2064,18 +2064,28 @@ function renderDashboard() {
   const pendingTasks = taskList.filter((dispatch) => ["待派单", "已派单"].includes(dispatch.status));
   const activeTasks = taskList.filter((dispatch) => dispatch.status === "运输中").length;
   const completionRate = taskList.length ? Math.round((completedTasks / taskList.length) * 100) : 0;
+  const routeMetrics = fixedRoutes.map((route) => {
+    const routeTasks = taskList.filter((dispatch) => dispatch.routeId === route.id);
+    const capacity = dashboardRouteCapacity[route.id] || 1;
+    const loadPercent = Math.min(100, Math.round((routeTasks.length / capacity) * 100));
+    return { route, routeTasks, loadPercent, loadClass: loadPercent >= 100 ? "overload" : loadPercent >= 75 ? "busy" : "normal" };
+  });
+
+  document.querySelector("#dashboardWelcomeTaskCount").textContent = taskList.length;
+  document.querySelector("#dashboardWelcomeVehicleCount").textContent = vehicleData.ownVehicles.length;
+  document.querySelector("#dashboardWelcomePendingCount").textContent = pendingTasks.length;
 
   const vehicleCards = [
-    { key: "idle", label: "闲置可派车", note: "可直接补任务", className: "idle", icon: "＋" },
-    { key: "moving", label: "正在运输", note: "任务执行中", className: "moving", icon: "↗" },
-    { key: "completed", label: "已完工", note: "今日已完成任务", className: "completed", icon: "✓" },
-    { key: "maintenance", label: "维修停用", note: "暂不可调度", className: "maintenance", icon: "—" },
+    { key: "idle", label: "闲置可派车", note: "可直接补任务", className: "idle", icon: "truck" },
+    { key: "moving", label: "正在运输", note: "任务执行中", className: "moving", icon: "route" },
+    { key: "completed", label: "已完工", note: "今日已完成任务", className: "completed", icon: "circle-check" },
+    { key: "maintenance", label: "维修停用", note: "暂不可调度", className: "maintenance", icon: "wrench" },
   ];
   document.querySelector("#dashboardVehicleStats").innerHTML = vehicleCards.map((card) => `
     <button class="dashboard-vehicle-card ${card.className}" data-dashboard-vehicle-state="${card.key}" type="button">
-      <span class="dashboard-card-icon" aria-hidden="true">${card.icon}</span>
+      <span class="dashboard-card-icon" aria-hidden="true"><i data-lucide="${card.icon}" class="dashboard-icon"></i></span>
       <span class="dashboard-card-copy"><small>${card.label}</small><strong>${vehicleData.groups[card.key].length}</strong><em>${card.note}</em></span>
-      <b aria-hidden="true">›</b>
+      <i data-lucide="chevron-right" class="dashboard-icon dashboard-card-chevron" aria-hidden="true"></i>
     </button>
   `).join("");
 
@@ -2088,30 +2098,45 @@ function renderDashboard() {
     ["待执行", pendingTasks.length, "pending"],
   ].map(([label, value, className]) => `<div class="dashboard-task-metric ${className}"><strong>${value}</strong><span>${label}</span></div>`).join("");
 
+  document.querySelector("#dashboardWorkbenchVehicle").innerHTML = [
+    ["闲置可派车", vehicleData.groups.idle.length, "positive", "vehicle-list"],
+    ["正在运输", vehicleData.groups.moving.length, "active", "vehicle-list"],
+    ["维修停用", vehicleData.groups.maintenance.length, "warning", "vehicle-list"],
+  ].map(([label, value, className, action]) => `<button class="workbench-line ${className}" data-dashboard-action="${action}" type="button"><span>${label}</span><strong>${value}</strong><i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button>`).join("");
+  document.querySelector("#dashboardWorkbenchDispatch").innerHTML = [
+    ["待执行任务", pendingTasks.length, "warning", "pending-list"],
+    ["运输中", activeTasks, "active", "dispatch-list"],
+    ["今日已完成", completedTasks, "positive", "dispatch-list"],
+  ].map(([label, value, className, action]) => `<button class="workbench-line ${className}" data-dashboard-action="${action}" type="button"><span>${label}</span><strong>${value}</strong><i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button>`).join("");
+  const busyRouteCount = routeMetrics.filter((item) => item.loadPercent >= 75).length;
+  document.querySelector("#dashboardWorkbenchRoute").innerHTML = [
+    ["今日线路", routeMetrics.length, "active", "route-list"],
+    ["高负荷线路", busyRouteCount, busyRouteCount ? "warning" : "positive", "route-list"],
+    ["线路任务量", taskList.length, "positive", "route-list"],
+  ].map(([label, value, className, action]) => `<button class="workbench-line ${className}" data-dashboard-action="${action}" type="button"><span>${label}</span><strong>${value}</strong><i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button>`).join("");
+
   const alertItems = [];
   if (vehicleData.groups.idle.length) alertItems.push({ className: "positive", title: `${vehicleData.groups.idle.length} 台自营车辆空闲`, detail: "可直接补派今日待执行任务", action: "vehicle-list", actionLabel: "查看车辆" });
   if (pendingTasks.length) alertItems.push({ className: "warning", title: `${pendingTasks.length} 条任务待执行`, detail: "建议优先完成司机与车辆匹配", action: "pending-list", actionLabel: "去处理" });
   if (!vehicleData.groups.idle.length && !pendingTasks.length) alertItems.push({ className: "neutral", title: "当前运力安排平稳", detail: "暂无需要立即处理的调度事项", action: "dispatch-list", actionLabel: "查看任务" });
   document.querySelector("#dashboardDispatchAlert").innerHTML = alertItems.map((item) => `
-    <div class="dispatch-alert-item ${item.className}"><span class="alert-symbol">${item.className === "positive" ? "✓" : item.className === "warning" ? "!" : "·"}</span><div><strong>${item.title}</strong><small>${item.detail}</small></div><button data-dashboard-action="${item.action}" type="button">${item.actionLabel} <b>›</b></button></div>
+    <div class="dispatch-alert-item ${item.className}"><span class="alert-symbol"><i data-lucide="${item.className === "positive" ? "circle-check" : "triangle-alert"}" class="dashboard-icon" aria-hidden="true"></i></span><div><strong>${item.title}</strong><small>${item.detail}</small></div><button data-dashboard-action="${item.action}" type="button">${item.actionLabel} <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></button></div>
   `).join("");
 
-  document.querySelector("#dashboardRouteLoads").innerHTML = fixedRoutes.map((route) => {
-    const routeTasks = taskList.filter((dispatch) => dispatch.routeId === route.id);
-    const capacity = dashboardRouteCapacity[route.id] || 1;
-    const loadPercent = Math.min(100, Math.round((routeTasks.length / capacity) * 100));
-    const loadClass = loadPercent >= 100 ? "overload" : loadPercent >= 75 ? "busy" : "normal";
+  document.querySelector("#dashboardRouteLoads").innerHTML = routeMetrics.map(({ route, routeTasks, loadPercent, loadClass }) => {
     const routeStatus = route.routeState === "启用" ? "启用" : "停用";
-    return `<button class="route-load-row ${loadClass}" data-dashboard-route="${route.id}" type="button"><span class="route-load-name"><strong>${dashboardEscape(route.routeName)}</strong><small>${dashboardEscape(route.origin)} → ${dashboardEscape(route.destination)}</small></span><span class="route-load-count"><strong>${routeTasks.length}</strong><small>今日单量</small></span><span class="route-load-progress"><i><b style="width:${loadPercent}%"></b></i><small>${loadPercent}% 饱和度</small></span><span class="route-load-status ${routeStatus === "启用" ? "enabled" : "disabled"}">${routeStatus}</span><b class="route-load-arrow" aria-hidden="true">›</b></button>`;
+    return `<button class="route-load-row ${loadClass}" data-dashboard-route="${route.id}" type="button"><span class="route-load-name"><strong>${dashboardEscape(route.routeName)}</strong><small>${dashboardEscape(route.origin)} → ${dashboardEscape(route.destination)}</small></span><span class="route-load-count"><strong>${routeTasks.length}</strong><small>今日单量</small></span><span class="route-load-progress"><i><b style="width:${loadPercent}%"></b></i><small>${loadPercent}% 饱和度</small></span><span class="route-load-status ${routeStatus === "启用" ? "enabled" : "disabled"}">${routeStatus}</span><i data-lucide="chevron-right" class="dashboard-icon route-load-arrow" aria-hidden="true"></i></button>`;
   }).join("");
 
   document.querySelector("#dashboardIdleVehicles").innerHTML = vehicleData.groups.idle.length
-    ? vehicleData.groups.idle.map((vehicle) => `<button class="dashboard-list-row" data-dashboard-vehicle="${dashboardEscape(vehicle.plateNo)}" type="button"><span class="vehicle-avatar">${dashboardEscape(vehicle.plateNo.slice(-2))}</span><span><strong>${dashboardEscape(vehicle.plateNo)}</strong><small>${dashboardEscape(vehicle.driver || "暂无司机")} · ${dashboardEscape(vehicle.fleet || "未分配车队")}</small></span><b>去派单 ›</b></button>`).join("")
-    : '<div class="dashboard-empty"><span>—</span><strong>当前无闲置自营车辆</strong><small>有车辆完工后会自动回到这里</small></div>';
+    ? vehicleData.groups.idle.map((vehicle) => `<button class="dashboard-list-row" data-dashboard-vehicle="${dashboardEscape(vehicle.plateNo)}" type="button"><span class="vehicle-avatar"><i data-lucide="truck" class="dashboard-icon" aria-hidden="true"></i></span><span><strong>${dashboardEscape(vehicle.plateNo)}</strong><small>${dashboardEscape(vehicle.driver || "暂无司机")} · ${dashboardEscape(vehicle.fleet || "未分配车队")}</small></span><b>去派单 <i data-lucide="chevron-right" class="dashboard-icon" aria-hidden="true"></i></b></button>`).join("")
+    : '<div class="dashboard-empty"><span><i data-lucide="truck" class="dashboard-icon" aria-hidden="true"></i></span><strong>当前无闲置自营车辆</strong><small>有车辆完工后会自动回到这里</small></div>';
 
   document.querySelector("#dashboardPendingTasks").innerHTML = pendingTasks.length
     ? pendingTasks.slice(0, 4).map((dispatch) => `<button class="dashboard-list-row" data-dashboard-task="${dashboardEscape(dispatch.status)}" type="button"><span class="task-status-mark ${dispatch.status === "已派单" ? "assigned" : "pending"}"></span><span><strong>${dashboardEscape(dispatch.routeName)}</strong><small>${dashboardEscape(dispatch.waybillNo)} · ${dashboardEscape(dispatch.currentNode)}</small></span><em>${dashboardEscape(dispatch.status)}</em></button>`).join("")
-    : '<div class="dashboard-empty"><span>✓</span><strong>今日任务已全部进入执行</strong><small>暂无待处理派单</small></div>';
+    : '<div class="dashboard-empty"><span><i data-lucide="circle-check" class="dashboard-icon" aria-hidden="true"></i></span><strong>今日任务已全部进入执行</strong><small>暂无待处理派单</small></div>';
+
+  window.lucide?.createIcons();
 }
 
 function openDashboardTarget(action) {
