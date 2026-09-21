@@ -172,6 +172,7 @@ const resultText = document.querySelector("#resultText");
 const pageTitle = document.querySelector("#pageTitle");
 const pageKicker = document.querySelector("#pageKicker");
 const pageViews = {
+  dashboard: document.querySelector("#dashboardPage"),
   waybill: document.querySelector("#waybillPage"),
   route: document.querySelector("#routePage"),
   dispatch: document.querySelector("#dispatchPage"),
@@ -181,7 +182,8 @@ const pageViews = {
   driver: document.querySelector("#driverPage"),
 };
 const pageMeta = {
-  home: { title: "首页", kicker: "首页待办 / 到期提醒", view: "vehicle", module: "reminders" },
+  home: { title: "调度看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
+  "vehicle-dashboard": { title: "调度看板", kicker: "集卡业务 / 车辆状态监控", view: "dashboard" },
   waybill: { title: "运单管理", kicker: "运输调度 / 运单台账", view: "waybill" },
   "fixed-routes": { title: "固定线路管理", kicker: "集卡业务 / 固定线路", view: "route" },
   "dispatch-list": { title: "派单列表", kicker: "集卡业务 / 派单调度", view: "dispatch" },
@@ -2018,6 +2020,117 @@ function closeVehicleDetail() {
   switchModule("archives");
 }
 
+const dashboardToday = "2026-09-16";
+const dashboardRouteCapacity = { "XL-001": 3, "XL-002": 2, "XL-003": 2, "XL-004": 1 };
+
+function dashboardEscape(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]));
+}
+
+function isDashboardToday(dispatch) {
+  if (dispatch.orderDate === dashboardToday || String(dispatch.dispatchTime || "").startsWith(dashboardToday)) return true;
+  return (dispatch.timeline || []).some((item) => String(item.time || "").startsWith(dashboardToday));
+}
+
+function getDashboardTasks() {
+  return dispatches.filter((dispatch) => isDashboardToday(dispatch) && dispatch.status !== "取消");
+}
+
+function getDashboardVehicleState(vehicle) {
+  if (vehicle.vehicleState !== "在用") return "maintenance";
+  const vehicleTasks = dispatches.filter((dispatch) => dispatch.vehicleId === vehicle.plateNo && isDashboardToday(dispatch));
+  if (vehicleTasks.some((dispatch) => ["已派单", "运输中"].includes(dispatch.status))) return "moving";
+  if (vehicleTasks.some((dispatch) => dispatch.status === "已完成")) return "completed";
+  return "idle";
+}
+
+function getDashboardVehicleData() {
+  const ownVehicles = vehicles.filter((vehicle) => vehicle.ownership === "自有");
+  return {
+    ownVehicles,
+    groups: {
+      idle: ownVehicles.filter((vehicle) => getDashboardVehicleState(vehicle) === "idle"),
+      moving: ownVehicles.filter((vehicle) => getDashboardVehicleState(vehicle) === "moving"),
+      completed: ownVehicles.filter((vehicle) => getDashboardVehicleState(vehicle) === "completed"),
+      maintenance: ownVehicles.filter((vehicle) => getDashboardVehicleState(vehicle) === "maintenance"),
+    },
+  };
+}
+
+function renderDashboard() {
+  const taskList = getDashboardTasks();
+  const vehicleData = getDashboardVehicleData();
+  const completedTasks = taskList.filter((dispatch) => dispatch.status === "已完成").length;
+  const pendingTasks = taskList.filter((dispatch) => ["待派单", "已派单"].includes(dispatch.status));
+  const activeTasks = taskList.filter((dispatch) => dispatch.status === "运输中").length;
+  const completionRate = taskList.length ? Math.round((completedTasks / taskList.length) * 100) : 0;
+
+  const vehicleCards = [
+    { key: "idle", label: "闲置可派车", note: "可直接补任务", className: "idle", icon: "＋" },
+    { key: "moving", label: "正在运输", note: "任务执行中", className: "moving", icon: "↗" },
+    { key: "completed", label: "已完工", note: "今日已完成任务", className: "completed", icon: "✓" },
+    { key: "maintenance", label: "维修停用", note: "暂不可调度", className: "maintenance", icon: "—" },
+  ];
+  document.querySelector("#dashboardVehicleStats").innerHTML = vehicleCards.map((card) => `
+    <button class="dashboard-vehicle-card ${card.className}" data-dashboard-vehicle-state="${card.key}" type="button">
+      <span class="dashboard-card-icon" aria-hidden="true">${card.icon}</span>
+      <span class="dashboard-card-copy"><small>${card.label}</small><strong>${vehicleData.groups[card.key].length}</strong><em>${card.note}</em></span>
+      <b aria-hidden="true">›</b>
+    </button>
+  `).join("");
+
+  document.querySelector("#dashboardCompletionRate").textContent = `${completionRate}%`;
+  document.querySelector("#dashboardCompletionBar").style.width = `${completionRate}%`;
+  document.querySelector("#dashboardTaskMetrics").innerHTML = [
+    ["今日任务", taskList.length, "total"],
+    ["已完成", completedTasks, "done"],
+    ["运输中", activeTasks, "active"],
+    ["待执行", pendingTasks.length, "pending"],
+  ].map(([label, value, className]) => `<div class="dashboard-task-metric ${className}"><strong>${value}</strong><span>${label}</span></div>`).join("");
+
+  const alertItems = [];
+  if (vehicleData.groups.idle.length) alertItems.push({ className: "positive", title: `${vehicleData.groups.idle.length} 台自营车辆空闲`, detail: "可直接补派今日待执行任务", action: "vehicle-list", actionLabel: "查看车辆" });
+  if (pendingTasks.length) alertItems.push({ className: "warning", title: `${pendingTasks.length} 条任务待执行`, detail: "建议优先完成司机与车辆匹配", action: "pending-list", actionLabel: "去处理" });
+  if (!vehicleData.groups.idle.length && !pendingTasks.length) alertItems.push({ className: "neutral", title: "当前运力安排平稳", detail: "暂无需要立即处理的调度事项", action: "dispatch-list", actionLabel: "查看任务" });
+  document.querySelector("#dashboardDispatchAlert").innerHTML = alertItems.map((item) => `
+    <div class="dispatch-alert-item ${item.className}"><span class="alert-symbol">${item.className === "positive" ? "✓" : item.className === "warning" ? "!" : "·"}</span><div><strong>${item.title}</strong><small>${item.detail}</small></div><button data-dashboard-action="${item.action}" type="button">${item.actionLabel} <b>›</b></button></div>
+  `).join("");
+
+  document.querySelector("#dashboardRouteLoads").innerHTML = fixedRoutes.map((route) => {
+    const routeTasks = taskList.filter((dispatch) => dispatch.routeId === route.id);
+    const capacity = dashboardRouteCapacity[route.id] || 1;
+    const loadPercent = Math.min(100, Math.round((routeTasks.length / capacity) * 100));
+    const loadClass = loadPercent >= 100 ? "overload" : loadPercent >= 75 ? "busy" : "normal";
+    const routeStatus = route.routeState === "启用" ? "启用" : "停用";
+    return `<button class="route-load-row ${loadClass}" data-dashboard-route="${route.id}" type="button"><span class="route-load-name"><strong>${dashboardEscape(route.routeName)}</strong><small>${dashboardEscape(route.origin)} → ${dashboardEscape(route.destination)}</small></span><span class="route-load-count"><strong>${routeTasks.length}</strong><small>今日单量</small></span><span class="route-load-progress"><i><b style="width:${loadPercent}%"></b></i><small>${loadPercent}% 饱和度</small></span><span class="route-load-status ${routeStatus === "启用" ? "enabled" : "disabled"}">${routeStatus}</span><b class="route-load-arrow" aria-hidden="true">›</b></button>`;
+  }).join("");
+
+  document.querySelector("#dashboardIdleVehicles").innerHTML = vehicleData.groups.idle.length
+    ? vehicleData.groups.idle.map((vehicle) => `<button class="dashboard-list-row" data-dashboard-vehicle="${dashboardEscape(vehicle.plateNo)}" type="button"><span class="vehicle-avatar">${dashboardEscape(vehicle.plateNo.slice(-2))}</span><span><strong>${dashboardEscape(vehicle.plateNo)}</strong><small>${dashboardEscape(vehicle.driver || "暂无司机")} · ${dashboardEscape(vehicle.fleet || "未分配车队")}</small></span><b>去派单 ›</b></button>`).join("")
+    : '<div class="dashboard-empty"><span>—</span><strong>当前无闲置自营车辆</strong><small>有车辆完工后会自动回到这里</small></div>';
+
+  document.querySelector("#dashboardPendingTasks").innerHTML = pendingTasks.length
+    ? pendingTasks.slice(0, 4).map((dispatch) => `<button class="dashboard-list-row" data-dashboard-task="${dashboardEscape(dispatch.status)}" type="button"><span class="task-status-mark ${dispatch.status === "已派单" ? "assigned" : "pending"}"></span><span><strong>${dashboardEscape(dispatch.routeName)}</strong><small>${dashboardEscape(dispatch.waybillNo)} · ${dashboardEscape(dispatch.currentNode)}</small></span><em>${dashboardEscape(dispatch.status)}</em></button>`).join("")
+    : '<div class="dashboard-empty"><span>✓</span><strong>今日任务已全部进入执行</strong><small>暂无待处理派单</small></div>';
+}
+
+function openDashboardTarget(action) {
+  if (action === "vehicle-list") {
+    switchPage("vehicle-archives");
+    return;
+  }
+  if (action === "route-list") {
+    switchPage("fixed-routes");
+    return;
+  }
+  switchPage("dispatch-list");
+  if (action === "pending-list") {
+    const status = document.querySelector('#dispatchQueryForm select[name="dispatchStatus"]');
+    if (status) status.value = "待派单";
+    renderDispatchPage(getFilteredDispatches());
+  }
+}
+
 function switchPage(pageName) {
   const meta = pageMeta[pageName] || pageMeta.waybill;
   const activeNavPage = meta.navPage || pageName;
@@ -2043,6 +2156,9 @@ function switchPage(pageName) {
     renderVehiclePage(filterVehicles(new FormData(document.querySelector("#vehicleQueryForm"))), getWarningDays());
     closeVehicleDetail();
   }
+  if (meta.view === "dashboard") {
+    renderDashboard();
+  }
   if (meta.view === "driver") {
     closeDriverDetail();
     renderDriverPage(getFilteredDrivers());
@@ -2067,6 +2183,7 @@ renderVehiclePage();
 renderDriverPage();
 renderRoutePage();
 renderDispatchPage();
+renderDashboard();
 
 selectAll.addEventListener("change", () => {
   document.querySelectorAll(".row-check").forEach((checkbox) => {
@@ -2404,6 +2521,45 @@ queryForm.addEventListener("submit", (event) => {
 
 document.querySelectorAll("[data-page]").forEach((item) => {
   item.addEventListener("click", () => switchPage(item.dataset.page));
+});
+
+document.querySelector("#refreshDashboardBtn").addEventListener("click", () => {
+  renderDashboard();
+  document.querySelector("#dashboardUpdatedAt").textContent = "刚刚更新 · 2026-09-16 11:20";
+});
+
+document.querySelector("#dashboardCreateDispatchBtn").addEventListener("click", () => {
+  switchPage("dispatch-list");
+  document.querySelector("#addDispatchBtn").click();
+});
+
+document.querySelector("#dashboardPage").addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-dashboard-action]");
+  const vehicleStateButton = event.target.closest("[data-dashboard-vehicle-state]");
+  const routeButton = event.target.closest("[data-dashboard-route]");
+  const taskButton = event.target.closest("[data-dashboard-task]");
+  const vehicleButton = event.target.closest("[data-dashboard-vehicle]");
+
+  if (vehicleStateButton || vehicleButton) {
+    switchPage("vehicle-archives");
+    return;
+  }
+  if (routeButton) {
+    switchPage("fixed-routes");
+    const route = fixedRoutes.find((item) => item.id === routeButton.dataset.dashboardRoute);
+    const routeFilter = document.querySelector('#routeQueryForm input[name="routeName"]');
+    if (routeFilter && route) routeFilter.value = route.routeName;
+    renderRoutePage(getFilteredRoutes());
+    return;
+  }
+  if (taskButton) {
+    switchPage("dispatch-list");
+    const status = document.querySelector('#dispatchQueryForm select[name="dispatchStatus"]');
+    if (status) status.value = taskButton.dataset.dashboardTask;
+    renderDispatchPage(getFilteredDispatches());
+    return;
+  }
+  if (actionButton) openDashboardTarget(actionButton.dataset.dashboardAction);
 });
 
 document.querySelectorAll(".detail-tab").forEach((tab) => {
