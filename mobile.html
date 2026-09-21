@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#356ae6" />
+    <meta name="theme-color" content="#f1f2ff" />
     <title>集卡司机端</title>
     <link rel="stylesheet" href="mobile.css" />
   </head>
@@ -22,29 +22,6 @@
 
       <main class="mobile-main">
         <section class="mobile-view active" id="tasksView" data-title="接单">
-          <div class="welcome-panel">
-            <div>
-              <span class="welcome-label" id="todayText">今日</span>
-              <h2>早上好，<span id="welcomeName">赵师傅</span></h2>
-              <p>安全行车，准时送达每一程</p>
-            </div>
-            <div class="online-chip"><span></span>听单中</div>
-          </div>
-
-          <div class="task-overview" id="taskOverview"></div>
-
-          <div class="section-heading">
-            <div><h2>我的任务</h2><p id="taskSummary">任务状态已与调度后台同步</p></div>
-            <button class="text-button" id="refreshTasksButton" type="button">刷新</button>
-          </div>
-
-          <div class="filter-scroll" id="taskFilters" role="tablist" aria-label="任务状态筛选">
-            <button class="filter-chip active" data-filter="pending" type="button">待接单 <span id="pendingCount">0</span></button>
-            <button class="filter-chip" data-filter="active" type="button">进行中 <span id="activeCount">0</span></button>
-            <button class="filter-chip" data-filter="completed" type="button">已完成</button>
-            <button class="filter-chip" data-filter="all" type="button">全部</button>
-          </div>
-
           <div class="task-list" id="taskList"></div>
         </section>
 
@@ -66,33 +43,46 @@
           <div class="profile-hero">
             <div class="avatar" id="profileAvatar">赵</div>
             <div class="profile-copy">
-              <div class="profile-name-line"><h2 id="profileName">赵亮</h2><span>已认证</span></div>
-              <p id="profileMeta">外协司机 · 临港协作车队</p>
+              <div class="profile-name-line"><h2 id="profileName">赵亮</h2><button id="profileCertificationBadge" data-profile-page="certification" type="button">未认证</button></div>
+              <p id="profileMeta">自有司机 · 临港车队</p>
               <small id="profilePhone">139****6662</small>
             </div>
             <button class="profile-edit" id="switchDriverButton" type="button" aria-label="切换演示司机">切换</button>
           </div>
 
-          <div class="income-card">
-            <div class="income-title"><span>本月预计提成</span><button id="toggleIncomeButton" type="button">显示</button></div>
-            <strong id="incomeAmount">¥ ****</strong>
-            <div class="income-stats" id="profileStats"></div>
-          </div>
-
-          <section class="profile-section">
-            <div class="section-heading compact"><div><h2>当前车辆</h2><p>调度分配车辆</p></div></div>
-            <div class="vehicle-card" id="profileVehicle"></div>
+          <section class="profile-order-panel">
+            <header>
+              <div><strong>我的运单</strong><span>运输任务进度</span></div>
+              <button data-order-stage="all" type="button">查看全部 <b>›</b></button>
+            </header>
+            <div class="profile-order-stats" id="profileOrderStats"></div>
           </section>
 
-          <section class="profile-section">
-            <div class="section-heading compact"><div><h2>证件资料</h2><p>到期前 30 天提醒</p></div></div>
-            <div class="document-list" id="documentList"></div>
+          <section class="profile-menu-group">
+            <h2>账户与安全</h2>
+            <div class="profile-menu-list">
+              <button data-profile-page="certification" type="button"><span class="profile-menu-icon orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span>司机认证</span><em class="certification-state" id="certificationMenuStatus">未认证</em><b>›</b></button>
+              <button data-profile-page="personal" type="button"><span class="profile-menu-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>个人信息</span><b>›</b></button>
+              <button data-profile-page="documents" type="button"><span class="profile-menu-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6.5 16c.8-1.8 4.2-1.8 5 0M14 10h3M14 14h3"/></svg></span><span>证件管理</span><b>›</b></button>
+              <button data-profile-page="security" type="button"><span class="profile-menu-icon purple"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></span><span>账户安全</span><b>›</b></button>
+            </div>
           </section>
 
-          <section class="menu-card">
-            <button type="button" data-menu-action="messages"><span class="menu-icon blue">信</span><span>消息通知</span><em id="messageBadge">2</em><b>›</b></button>
-            <button type="button" data-menu-action="service"><span class="menu-icon orange">服</span><span>联系调度</span><b>›</b></button>
-            <button type="button" data-menu-action="settings"><span class="menu-icon gray">设</span><span>设置</span><b>›</b></button>
+          <section class="profile-menu-group">
+            <h2>车辆信息</h2>
+            <div class="profile-menu-list">
+              <button data-profile-page="vehicle" type="button"><span class="profile-menu-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V8l2-3h10l2 3v8M5 11h14M7 16v2M17 16v2"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg></span><span>车辆信息</span><b>›</b></button>
+              <button data-profile-page="insurance" type="button"><span class="profile-menu-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span>车辆保险</span><b>›</b></button>
+            </div>
+          </section>
+
+          <section class="profile-menu-group">
+            <h2>服务与设置</h2>
+            <div class="profile-menu-list">
+              <button data-profile-page="messages" type="button"><span class="profile-menu-icon orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><span>消息通知</span><em id="messageBadge">2</em><b>›</b></button>
+              <button data-profile-page="service" type="button"><span class="profile-menu-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 16 0v5a2 2 0 0 1-2 2h-2v-7h4M4 12v5h4v-5H4M12 20h4"/></svg></span><span>联系调度</span><b>›</b></button>
+              <button data-profile-page="settings" type="button"><span class="profile-menu-icon gray"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5L9 6.1a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2.1 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1l.5 3.1h5l.5-3.1a8 8 0 0 0 1.7-1l2.4 1 2-3.4L19 13a7 7 0 0 0 .1-1Z"/></svg></span><span>系统设置</span><b>›</b></button>
+            </div>
           </section>
           <p class="version-text">集卡司机端 · 原型版 1.0</p>
         </section>
@@ -109,6 +99,17 @@
           </header>
           <div class="detail-scroll" id="detailContent"></div>
           <div class="detail-action-bar" id="detailActionBar"></div>
+        </section>
+
+        <section class="subpage-view" id="profileSubpage" aria-hidden="true">
+          <header class="detail-nav">
+            <button class="icon-button" id="backFromSubpage" type="button" aria-label="返回个人中心">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <strong id="subpageTitle">个人信息</strong>
+            <span></span>
+          </header>
+          <div class="subpage-scroll" id="subpageContent"></div>
         </section>
       </main>
 

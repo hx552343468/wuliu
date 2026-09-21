@@ -105,6 +105,30 @@ const waybills = [
   },
 ];
 
+const WAYBILL_STORAGE_KEY = "container-logistics-waybills-v1";
+const seedWaybillNumbers = new Set(waybills.map((item) => item.waybillNo));
+try {
+  const savedWaybills = JSON.parse(localStorage.getItem(WAYBILL_STORAGE_KEY) || "[]");
+  if (Array.isArray(savedWaybills)) {
+    const known = new Set(seedWaybillNumbers);
+    savedWaybills.forEach((item) => {
+      if (!item || typeof item.waybillNo !== "string" || known.has(item.waybillNo)) return;
+      known.add(item.waybillNo);
+      waybills.push(item);
+    });
+  }
+} catch (error) {
+  console.warn("运单数据读取失败，使用初始数据。", error);
+}
+
+function saveWaybills() {
+  try {
+    localStorage.setItem(WAYBILL_STORAGE_KEY, JSON.stringify(waybills.filter((item) => !seedWaybillNumbers.has(item.waybillNo))));
+  } catch (error) {
+    console.warn("运单数据保存失败。", error);
+  }
+}
+
 const columns = [
   "waybillNo",
   "orderDate",
@@ -140,6 +164,7 @@ const moreMenu = document.querySelector("#moreMenu");
 const addBtn = document.querySelector("#addBtn");
 const addDialog = document.querySelector("#addDialog");
 const waybillForm = document.querySelector("#waybillForm");
+const waybillContainerBody = document.querySelector("#waybillContainerBody");
 const receivableFeeBody = document.querySelector("#receivableFeeBody");
 const payableFeeBody = document.querySelector("#payableFeeBody");
 const queryForm = document.querySelector("#queryForm");
@@ -150,6 +175,8 @@ const pageViews = {
   waybill: document.querySelector("#waybillPage"),
   route: document.querySelector("#routePage"),
   dispatch: document.querySelector("#dispatchPage"),
+  autoDispatch: document.querySelector("#autoDispatchPage"),
+  customer: document.querySelector("#customerPage"),
   vehicle: document.querySelector("#vehiclePage"),
   driver: document.querySelector("#driverPage"),
 };
@@ -158,6 +185,8 @@ const pageMeta = {
   waybill: { title: "运单管理", kicker: "运输调度 / 运单台账", view: "waybill" },
   "fixed-routes": { title: "固定线路管理", kicker: "集卡业务 / 固定线路", view: "route" },
   "dispatch-list": { title: "派单列表", kicker: "集卡业务 / 派单调度", view: "dispatch" },
+  "auto-dispatch": { title: "自动派单", kicker: "集卡业务 / 智能调度", view: "autoDispatch" },
+  "customer-archives": { title: "客户管理", kicker: "基础资料 / 客户档案", view: "customer" },
   vehicle: {
     title: "车辆档案管理",
     kicker: "车辆管理 / 车辆档案",
@@ -342,7 +371,7 @@ const drivers = [
   {
     id: "SJ-1001", name: "王海", gender: "男", idCard: "330206198805182418", phone: "13800008881",
     address: "宁波市北仑区新碶街道", emergencyContact: "王静", emergencyPhone: "13700001126",
-    entryDate: "2021-03-15", driverType: "自有司机", driverState: "在职", fleet: "宁波一队",
+    entryDate: "2021-03-15", driverType: "自有司机", driverState: "运输中", certificationStatus: "verified", fleet: "宁波一队",
     licenseNo: "330206198805182418", licenseClass: "A2", licenseIssueDate: "2014-05-18", licenseExpiry: "2027-05-18",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330206002891", qualificationExpiry: "2026-10-08",
     qualificationAttachment: "从业资格证照片", bankCard: "6222020200008812", bankName: "中国工商银行宁波北仑支行", remark: "",
@@ -350,15 +379,15 @@ const drivers = [
   {
     id: "SJ-1002", name: "赵亮", gender: "男", idCard: "310115198912093617", phone: "13900006662",
     address: "上海市浦东新区临港大道", emergencyContact: "赵敏", emergencyPhone: "13600007832",
-    entryDate: "2022-07-08", driverType: "外协司机", driverState: "在职", fleet: "临港协作车队",
+    entryDate: "2022-07-08", driverType: "自有司机", driverState: "运输中", certificationStatus: "verified", fleet: "临港车队",
     licenseNo: "310115198912093617", licenseClass: "A2", licenseIssueDate: "2015-09-28", licenseExpiry: "2026-09-28",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "310115006720", qualificationExpiry: "2026-12-18",
-    qualificationAttachment: "从业资格证照片", bankCard: "6217001200006635", bankName: "中国建设银行上海临港支行", remark: "外协结算",
+    qualificationAttachment: "从业资格证照片", bankCard: "6217001200006635", bankName: "中国建设银行上海临港支行", remark: "",
   },
   {
     id: "SJ-1003", name: "刘军", gender: "男", idCard: "320500198706263011", phone: "13700003335",
     address: "苏州市工业园区星湖街", emergencyContact: "刘芳", emergencyPhone: "13500009218",
-    entryDate: "2020-11-20", driverType: "自有司机", driverState: "停岗", fleet: "苏州二队",
+    entryDate: "2020-11-20", driverType: "自有司机", driverState: "停用", certificationStatus: "pending", fleet: "苏州二队",
     licenseNo: "320500198706263011", licenseClass: "A2", licenseIssueDate: "2012-08-30", licenseExpiry: "2026-08-30",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "320500003109", qualificationExpiry: "2026-09-10",
     qualificationAttachment: "从业资格证照片", bankCard: "6228480400003351", bankName: "中国农业银行苏州园区支行", remark: "证件续办中",
@@ -366,7 +395,7 @@ const drivers = [
   {
     id: "SJ-1004", name: "陈涛", gender: "男", idCard: "330109199003154812", phone: "13600002228",
     address: "杭州市萧山区市心南路", emergencyContact: "陈晓", emergencyPhone: "13800004116",
-    entryDate: "2023-02-06", driverType: "外协司机", driverState: "在职", fleet: "杭州协作车队",
+    entryDate: "2023-02-06", driverType: "自有司机", driverState: "空闲", certificationStatus: "verified", fleet: "杭州车队",
     licenseNo: "330109199003154812", licenseClass: "A2", licenseIssueDate: "2016-03-15", licenseExpiry: "2028-03-15",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330109007721", qualificationExpiry: "2027-12-20",
     qualificationAttachment: "从业资格证照片", bankCard: "6212261200002289", bankName: "中国工商银行杭州萧山支行", remark: "",
@@ -374,18 +403,103 @@ const drivers = [
   {
     id: "SJ-1005", name: "周凯", gender: "男", idCard: "330205199511083219", phone: "13500007719",
     address: "宁波市江北区洪塘街道", emergencyContact: "周梅", emergencyPhone: "13700005231",
-    entryDate: "2026-10-08", driverType: "自有司机", driverState: "待入职", fleet: "宁波二队",
+    entryDate: "2026-10-08", driverType: "自有司机", driverState: "停用", certificationStatus: "unverified", fleet: "宁波二队",
     licenseNo: "330205199511083219", licenseClass: "A2", licenseIssueDate: "2019-11-08", licenseExpiry: "2029-11-08",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330205008519", qualificationExpiry: "2028-06-30",
     qualificationAttachment: "从业资格证照片", bankCard: "", bankName: "", remark: "入职资料待复核",
   },
 ];
 
+function enabledOwnDrivers() {
+  return drivers.filter((driver) => driver.driverType === "自有司机" && driver.driverState !== "停用");
+}
+
+function availableOwnDrivers() {
+  return enabledOwnDrivers().filter((driver) =>
+    driver.driverState === "空闲" &&
+    driver.certificationStatus === "verified" &&
+    daysUntil(driver.licenseExpiry) >= 0 &&
+    daysUntil(driver.qualificationExpiry) >= 0
+  );
+}
+
+const DRIVER_CERTIFICATION_STORAGE_KEY = "container-logistics-driver-certifications-v1";
+const DEMO_CERTIFICATION_MIGRATIONS = {
+  "SJ-1002": { from: "unverified", to: "verified" },
+  "SJ-1004": { from: "rejected", to: "verified", legacyReason: "身份证背面照片模糊，请重新上传" },
+};
+
+function loadDriverCertifications() {
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(DRIVER_CERTIFICATION_STORAGE_KEY) || "{}");
+  } catch {
+    stored = {};
+  }
+  Object.entries(DEMO_CERTIFICATION_MIGRATIONS).forEach(([driverId, migration]) => {
+    const record = stored[driverId];
+    if (!record || record.status !== migration.from || (migration.legacyReason && record.reason !== migration.legacyReason)) return;
+    stored[driverId] = {
+      ...record,
+      status: migration.to,
+      submittedAt: record.submittedAt || "2026-08-12 09:20",
+      reviewedAt: "2026-08-12 11:05",
+      reason: "",
+    };
+  });
+  drivers.forEach((driver) => {
+    const record = stored[driver.id];
+    if (record) {
+      driver.certificationStatus = record.status || "unverified";
+      driver.certificationSubmittedAt = record.submittedAt || "";
+      driver.certificationReviewedAt = record.reviewedAt || "";
+      driver.certificationReason = record.reason || "";
+      driver.certificationFiles = record;
+    } else {
+      const hasSubmitted = driver.certificationStatus !== "unverified";
+      stored[driver.id] = {
+        status: driver.certificationStatus || "unverified",
+        submittedAt: hasSubmitted ? (driver.certificationStatus === "pending" ? "2026-09-20 15:36" : "2026-08-12 09:20") : "",
+        reviewedAt: ["verified", "rejected"].includes(driver.certificationStatus) ? "2026-08-12 11:05" : "",
+        reason: driver.certificationReason || "",
+        idCardFront: hasSubmitted ? "身份证人像面.jpg" : "",
+        idCardBack: hasSubmitted ? "身份证国徽面.jpg" : "",
+        licenseAttachment: hasSubmitted ? driver.licenseAttachment : "",
+        qualificationAttachment: hasSubmitted ? driver.qualificationAttachment : "",
+      };
+    }
+    driver.certificationFiles = stored[driver.id];
+    driver.certificationSubmittedAt = stored[driver.id].submittedAt || "";
+    driver.certificationReviewedAt = stored[driver.id].reviewedAt || "";
+  });
+  localStorage.setItem(DRIVER_CERTIFICATION_STORAGE_KEY, JSON.stringify(stored));
+}
+
+function saveDriverCertification(driver) {
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(DRIVER_CERTIFICATION_STORAGE_KEY) || "{}");
+  } catch {
+    stored = {};
+  }
+  stored[driver.id] = {
+    ...(stored[driver.id] || {}),
+    status: driver.certificationStatus,
+    submittedAt: driver.certificationSubmittedAt || stored[driver.id]?.submittedAt || "",
+    reviewedAt: driver.certificationReviewedAt || "",
+    reason: driver.certificationReason || "",
+  };
+  localStorage.setItem(DRIVER_CERTIFICATION_STORAGE_KEY, JSON.stringify(stored));
+}
+
+loadDriverCertifications();
+
 let driverCurrentPage = 1;
 let driverPageSize = 10;
 let driverFormMode = "create";
 let editingDriverId = "";
 let deletingDriverId = "";
+let selectedDriverDetail = null;
 const selectedDriverIds = new Set();
 let renderedDriverIds = [];
 
@@ -402,6 +516,11 @@ const driverNextPage = document.querySelector("#driverNextPage");
 const driverCurrentPageButton = document.querySelector("#driverCurrentPage");
 const driverMoreBtn = document.querySelector("#driverMoreBtn");
 const driverMoreMenu = document.querySelector("#driverMoreMenu");
+const driverDetailPanel = document.querySelector("#driverDetailPanel");
+const driverCertificationDialog = document.querySelector("#driverCertificationDialog");
+const certificationReviewContent = document.querySelector("#certificationReviewContent");
+const certificationReviewNote = document.querySelector("#certificationReviewNote");
+let reviewingDriverId = "";
 
 const fixedRoutes = [
   { id: "XL-001", routeCode: "XL-NB-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", viaPoints: "北仑收费站", routeState: "启用", estimatedRevenue: 2860, baseFreight: 2600, commissionType: "fixed", commissionValue: 420, commissionRemark: "含港区等待补贴", defaultVehicle: "浙B·K7812", defaultDriver: "王海", remark: "日常进口柜线路" },
@@ -419,8 +538,87 @@ const dispatchSeed = [
 ];
 const dispatches = window.DispatchStore.load(dispatchSeed);
 
+const ACTIVE_DRIVER_DISPATCH_STATES = new Set(["已派单", "运输中"]);
+const LEGACY_DISABLED_DRIVER_STATES = new Set(["离职", "待入职", "停岗"]);
+
+function driverHasActiveDispatch(driverId) {
+  return Boolean(driverId) && dispatches.some((dispatch) =>
+    dispatch.driverId === driverId && ACTIVE_DRIVER_DISPATCH_STATES.has(dispatch.status)
+  );
+}
+
+function syncDriverOperationalStates() {
+  drivers.forEach((driver) => {
+    if (LEGACY_DISABLED_DRIVER_STATES.has(driver.driverState)) {
+      driver.driverState = "停用";
+      return;
+    }
+    if (driver.certificationStatus !== "verified") {
+      driver.driverState = "停用";
+      return;
+    }
+    if (driver.driverState === "停用") return;
+    if (driverHasActiveDispatch(driver.id)) {
+      driver.driverState = "运输中";
+      return;
+    }
+    if (driver.driverState === "在职" || driver.driverState === "运输中" || !["空闲", "停用"].includes(driver.driverState)) {
+      driver.driverState = "空闲";
+    }
+  });
+}
+
+syncDriverOperationalStates();
+
 function saveDispatches() {
   window.DispatchStore.save(dispatches);
+}
+
+function getWaybillContainers(waybill) {
+  if (Array.isArray(waybill.containers) && waybill.containers.length) return waybill.containers;
+  const boxType = String(waybill.boxType || "40HQ").replace(/\*\d+$/, "");
+  return [
+    { boxNo: waybill.boxNo1, sealNo: waybill.sealNo1, boxType, pickupPoint: waybill.pickupPoint1, returnPoint: waybill.returnPoint },
+    { boxNo: waybill.boxNo2, sealNo: waybill.sealNo2, boxType, pickupPoint: waybill.pickupPoint2, returnPoint: waybill.returnPoint },
+  ].filter((item, index) => index === 0 || (item.boxNo && item.boxNo !== "-"));
+}
+
+function formatWaybillBoxes(waybill) {
+  return getWaybillContainers(waybill).map((container) => [
+    container.boxNo && container.boxNo !== "-" ? container.boxNo : "待装箱",
+    container.sealNo && container.sealNo !== "-" ? `封号 ${container.sealNo}` : "",
+    container.boxType || "-",
+  ].filter(Boolean).join(" / ")).join("；");
+}
+
+function createPendingDispatch(waybill, route) {
+  const dispatch = {
+    id: `PD-${Date.now()}-${waybill.waybillNo}`,
+    dispatchMode: "pending",
+    waybillNo: waybill.waybillNo,
+    orderDate: waybill.orderDate,
+    routeId: route?.id || "",
+    routeName: route?.routeName || "未指定线路",
+    origin: route?.origin || waybill.loadAddress,
+    destination: route?.destination || "-",
+    loadAddress: waybill.loadAddress,
+    dispatchTime: "",
+    driverId: "",
+    driverName: "待分配",
+    phone: "-",
+    vehicleId: "",
+    status: "待派单",
+    currentNode: "待派单",
+    boxes: formatWaybillBoxes(waybill),
+    estimatedRevenue: route ? Number(route.estimatedRevenue) || 0 : waybill.receivable,
+    commission: route ? calculateRouteCommission(route) : 0,
+    note: "",
+    pushed: false,
+    timeline: [],
+  };
+  dispatches.unshift(dispatch);
+  saveDispatches();
+  return dispatch;
 }
 
 let routeCurrentPage = 1;
@@ -543,7 +741,8 @@ function getDueInfo(vehicle, warningDays = 30) {
 function getVehicleStateClass(state) {
   if (state === "在用") return "active-state";
   if (state === "停用") return "stop-state";
-  return "scrap-state";
+  if (state === "维修中") return "maintenance-state";
+  return "stop-state";
 }
 
 function filterRows(formData) {
@@ -611,7 +810,7 @@ function renderVehicleRows(rows, warningDays = 30) {
           <td>${vehicle.insuranceDue}</td>
           <td><span class="due-pill ${dueInfo.key}">${dueInfo.label}</span></td>
           <td>${vehicle.attachments}</td>
-          <td>
+          <td class="fixed-action-column">
             <div class="vehicle-action-group">
               <button class="link-btn" data-detail-plate="${vehicle.plateNo}" type="button">详情</button>
               <button class="link-btn" data-edit-plate="${vehicle.plateNo}" type="button">编辑</button>
@@ -664,47 +863,95 @@ function renderVehicleDetailBase(vehicle) {
     return;
   }
 
-  const detailItems = [
-    ["车牌号码", vehicle.plateNo],
-    ["驾驶员", vehicle.driver],
-    ["所属车队", vehicle.fleet],
-    ["车队名称", vehicle.fleetName],
-    ["发动机号", vehicle.engineNo],
-    ["整备质量（吨）", vehicle.curbWeight],
-    ["百公里油耗（升）", vehicle.fuelConsumption],
-    ["核定载质量（吨）", vehicle.ratedLoad],
-    ["车辆登记证号", vehicle.registrationCertNo],
-    ["车辆类型", vehicle.vehicleType],
-    ["车辆技术等级", vehicle.technicalLevel],
-    ["车辆技术等级有效期", vehicle.technicalLevelExpiry],
-    ["行驶证号", vehicle.drivingLicenseNo],
-    ["行驶证有效期", vehicle.drivingLicenseExpiry],
-    ["营运证号", vehicle.permitNo],
-    ["营运证有效期", vehicle.operatingPermitExpiry],
-    ["商业险单号", vehicle.commercialInsuranceNo],
-    ["商业险有效期", vehicle.commercialInsuranceExpiry],
-    ["强制险单号", vehicle.mandatoryInsuranceNo],
-    ["强制险有效期", vehicle.mandatoryInsuranceExpiry],
-    ["货物险单号", vehicle.cargoInsuranceNo],
-    ["货物险有效期", vehicle.cargoInsuranceExpiry],
-    ["车辆所属", vehicle.ownership],
-    ["车辆状态", vehicle.vehicleState],
-    ["车架号", vehicle.vin],
-    ["审验到期", vehicle.inspectionDue],
-    ["保险到期", vehicle.insuranceDue],
-    ["备注", vehicle.remark],
-    ["附件资料", vehicle.attachments],
+  const detailGroups = [
+    {
+      title: "基础资料",
+      description: "车辆归属与当前使用信息",
+      items: [
+        ["车牌号码", vehicle.plateNo],
+        ["驾驶员", vehicle.driver],
+        ["所属车队", vehicle.fleet],
+        ["车队名称", vehicle.fleetName],
+        ["车辆所属", vehicle.ownership],
+        ["车辆状态", vehicle.vehicleState],
+      ],
+    },
+    {
+      title: "车辆参数",
+      description: "车型、识别信息与运输参数",
+      items: [
+        ["车辆类型", vehicle.vehicleType],
+        ["车架号", vehicle.vin],
+        ["发动机号", vehicle.engineNo],
+        ["整备质量（吨）", vehicle.curbWeight],
+        ["百公里油耗（升）", vehicle.fuelConsumption],
+        ["核定载质量（吨）", vehicle.ratedLoad],
+      ],
+    },
+    {
+      title: "证照信息",
+      description: "登记、技术等级和营运证照",
+      items: [
+        ["车辆登记证号", vehicle.registrationCertNo],
+        ["车辆技术等级", vehicle.technicalLevel],
+        ["车辆技术等级有效期", vehicle.technicalLevelExpiry],
+        ["行驶证号", vehicle.drivingLicenseNo],
+        ["行驶证有效期", vehicle.drivingLicenseExpiry],
+        ["营运证号", vehicle.permitNo],
+        ["营运证有效期", vehicle.operatingPermitExpiry],
+        ["审验到期", vehicle.inspectionDue],
+      ],
+    },
+    {
+      title: "保险与附件",
+      description: "车辆保单、到期日期与电子资料",
+      items: [
+        ["商业险单号", vehicle.commercialInsuranceNo],
+        ["商业险有效期", vehicle.commercialInsuranceExpiry],
+        ["强制险单号", vehicle.mandatoryInsuranceNo],
+        ["强制险有效期", vehicle.mandatoryInsuranceExpiry],
+        ["货物险单号", vehicle.cargoInsuranceNo],
+        ["货物险有效期", vehicle.cargoInsuranceExpiry],
+        ["保险到期", vehicle.insuranceDue],
+        ["备注", vehicle.remark],
+        ["附件资料", vehicle.attachments],
+      ],
+    },
   ];
 
   document.querySelector("#detailVehicleTitle").textContent = vehicle.plateNo;
-  document.querySelector("#detailVehicleMeta").textContent = `${vehicle.vehicleType} / ${vehicle.vehicleState}`;
-  document.querySelector("#vehicleDetailBase").innerHTML = detailItems
+  document.querySelector("#detailVehicleMeta").textContent = `${vehicle.vehicleType} / ${vehicle.ownership}`;
+  const detailVehicleState = document.querySelector("#detailVehicleState");
+  detailVehicleState.textContent = vehicle.vehicleState;
+  detailVehicleState.className = `state-pill ${getVehicleStateClass(vehicle.vehicleState)}`;
+  document.querySelector("#detailVehicleDriver").textContent = vehicle.driver || "—";
+  document.querySelector("#detailVehicleFleet").textContent = vehicle.fleetName || vehicle.fleet || "—";
+  document.querySelector("#detailVehicleInspectionDue").textContent = vehicle.inspectionDue || "—";
+  document.querySelector("#detailVehicleInsuranceDue").textContent = vehicle.insuranceDue || "—";
+  document.querySelector("#vehicleDetailBase").innerHTML = detailGroups
     .map(
-      ([label, value]) => `
-        <div class="detail-item">
-          <span>${label}</span>
-          <strong>${value || "—"}</strong>
-        </div>
+      (group) => `
+        <section class="vehicle-info-section" aria-label="${group.title}">
+          <header>
+            <div>
+              <strong>${group.title}</strong>
+              <span>${group.description}</span>
+            </div>
+            <small>${group.items.length} 项</small>
+          </header>
+          <dl class="vehicle-info-list">
+            ${group.items
+              .map(
+                ([label, value]) => `
+                  <div class="detail-item">
+                    <dt>${label}</dt>
+                    <dd>${value || "—"}</dd>
+                  </div>
+                `
+              )
+              .join("")}
+          </dl>
+        </section>
       `
     )
     .join("");
@@ -845,6 +1092,10 @@ function openVehicleForm(mode, plateNo = "") {
   const vehicle = vehicles.find((item) => item.plateNo === plateNo);
   document.querySelector("#vehicleFormTitle").textContent = mode === "edit" ? "编辑车辆档案" : "新增车辆档案";
   vehicleForm.dataset.attachments = vehicle?.attachments || "";
+  const drivingLicenseAttachment = vehicle?.drivingLicenseAttachment || (vehicle?.attachments?.includes("行驶证") ? "行驶证扫描件" : "");
+  const operatingPermitAttachment = vehicle?.operatingPermitAttachment || (vehicle?.attachments?.includes("营运证") ? "营运证照片" : "");
+  window.AttachmentPicker?.setExisting(vehicleForm.elements.drivingLicense, drivingLicenseAttachment);
+  window.AttachmentPicker?.setExisting(vehicleForm.elements.operatingPermit, operatingPermitAttachment);
 
   if (vehicle) {
     [
@@ -895,9 +1146,11 @@ function closeVehicleForm() {
 
 function getVehicleFormData() {
   const formData = new FormData(vehicleForm);
-  const attachmentNames = [formData.get("drivingLicense"), formData.get("operatingPermit")]
-    .filter((file) => file instanceof File && file.name)
-    .map((file) => file.name);
+  const drivingLicenseAttachment = window.AttachmentPicker?.getValue(vehicleForm.elements.drivingLicense) || "";
+  const operatingPermitAttachment = window.AttachmentPicker?.getValue(vehicleForm.elements.operatingPermit) || "";
+  const retainedAttachments = (vehicleForm.dataset.attachments || "").split("、")
+    .filter((name) => name && !name.includes("行驶证") && !name.includes("营运证") && name !== "未上传");
+  const attachmentNames = [drivingLicenseAttachment, operatingPermitAttachment, ...retainedAttachments].filter(Boolean);
 
   return {
     plateNo: formData.get("plateNo").trim(),
@@ -928,7 +1181,9 @@ function getVehicleFormData() {
     inspectionDue: formData.get("inspectionDue"),
     insuranceDue: formData.get("insuranceDue"),
     remark: formData.get("remark").trim(),
-    attachments: attachmentNames.length ? attachmentNames.join("、") : vehicleForm.dataset.attachments || "未上传",
+    drivingLicenseAttachment,
+    operatingPermitAttachment,
+    attachments: attachmentNames.length ? attachmentNames.join("、") : "未上传",
   };
 }
 
@@ -974,9 +1229,86 @@ function getDriverExpiryInfo(driver) {
 }
 
 function getDriverStateClass(state) {
-  if (state === "在职") return "active-state";
-  if (state === "离职") return "scrap-state";
+  if (state === "空闲") return "active-state";
+  if (state === "运输中") return "maintenance-state";
   return "stop-state";
+}
+
+function getCertificationInfo(status) {
+  return {
+    unverified: { label: "未认证", className: "" },
+    pending: { label: "待审核", className: "pending" },
+    verified: { label: "已认证", className: "verified" },
+    rejected: { label: "未通过", className: "rejected" },
+  }[status] || { label: "未认证", className: "" };
+}
+
+function canReviewDriverCertification(driver) {
+  return driver.certificationStatus === "pending" && driver.driverState !== "运输中";
+}
+
+function maskCertificationId(value) {
+  return String(value || "").replace(/^(\d{6})\d+(\w{4})$/, "$1********$2");
+}
+
+function openCertificationReview(driverId) {
+  const driver = drivers.find((item) => item.id === driverId);
+  if (!driver) return;
+  reviewingDriverId = driverId;
+  const status = getCertificationInfo(driver.certificationStatus);
+  const files = driver.certificationFiles || {};
+  certificationReviewContent.innerHTML = `
+    <div class="certification-review-summary">
+      <div><span>司机姓名</span><strong>${driver.name}</strong></div>
+      <div><span>身份证号</span><strong>${maskCertificationId(driver.idCard)}</strong></div>
+      <div><span>认证状态</span><strong><em class="certification-badge ${status.className}">${status.label}</em></strong></div>
+      <div><span>联系电话</span><strong>${driver.phone}</strong></div>
+      <div><span>准驾车型</span><strong>${driver.licenseClass}</strong></div>
+      <div><span>提交时间</span><strong>${driver.certificationSubmittedAt || "尚未提交"}</strong></div>
+    </div>
+    <div class="certification-file-grid">
+      <div class="certification-file-card"><i>身份</i><div><strong>身份证人像面</strong><span>${files.idCardFront || "未上传"}</span></div></div>
+      <div class="certification-file-card"><i>身份</i><div><strong>身份证国徽面</strong><span>${files.idCardBack || "未上传"}</span></div></div>
+      <div class="certification-file-card"><i>驾驶</i><div><strong>驾驶证照片</strong><span>${files.licenseAttachment || driver.licenseAttachment || "未上传"}</span></div></div>
+      <div class="certification-file-card"><i>资格</i><div><strong>从业资格证</strong><span>${files.qualificationAttachment || driver.qualificationAttachment || "未上传"}</span></div></div>
+    </div>`;
+  certificationReviewNote.value = driver.certificationReason || "";
+  const canReview = canReviewDriverCertification(driver);
+  document.querySelector("#certificationDialogTitle").textContent = canReview ? "司机认证审核" : "司机认证资料";
+  document.querySelector("#certificationDialogSubtitle").textContent = canReview ? "核验司机身份、驾驶证及从业资格资料" : "查看司机认证状态及已提交资料";
+  document.querySelector("#certificationReviewNoteField").hidden = !canReview;
+  document.querySelector("#cancelCertificationReviewBtn").textContent = canReview ? "取消" : "关闭";
+  document.querySelector("#approveCertificationBtn").disabled = !canReview;
+  document.querySelector("#approveCertificationBtn").hidden = !canReview;
+  document.querySelector("#rejectCertificationBtn").disabled = !canReview;
+  document.querySelector("#rejectCertificationBtn").hidden = !canReview;
+  driverCertificationDialog.showModal();
+}
+
+function closeCertificationReview() {
+  if (driverCertificationDialog.open) driverCertificationDialog.close();
+  reviewingDriverId = "";
+  certificationReviewNote.value = "";
+}
+
+function reviewDriverCertification(result) {
+  const driver = drivers.find((item) => item.id === reviewingDriverId);
+  if (!driver || !canReviewDriverCertification(driver)) return;
+  const note = certificationReviewNote.value.trim();
+  if (result === "rejected" && !note) {
+    certificationReviewNote.focus();
+    certificationReviewNote.setCustomValidity("驳回认证时请填写审核意见");
+    certificationReviewNote.reportValidity();
+    return;
+  }
+  certificationReviewNote.setCustomValidity("");
+  driver.certificationStatus = result;
+  driver.certificationReason = result === "rejected" ? note : "";
+  driver.certificationReviewedAt = window.DispatchStore.nowText();
+  driver.driverState = result === "verified" ? (driverHasActiveDispatch(driver.id) ? "运输中" : "空闲") : "停用";
+  saveDriverCertification(driver);
+  closeCertificationReview();
+  renderDriverPage(getFilteredDrivers());
 }
 
 function filterDrivers(formData) {
@@ -996,6 +1328,7 @@ function filterDrivers(formData) {
       (expiryType === "已过期" && (licenseDays < 0 || qualificationDays < 0));
 
     return (
+      driver.driverType === "自有司机" &&
       normalize(driver.name).includes(name) &&
       normalize(driver.idCard).includes(idCard) &&
       normalize(driver.phone).includes(phone) &&
@@ -1010,31 +1343,31 @@ function getFilteredDrivers() {
 }
 
 function renderDriverSummaryCards() {
-  const activeCount = drivers.filter((driver) => driver.driverState === "在职").length;
-  const onboardingCount = drivers.filter((driver) => driver.driverState === "待入职").length;
-  const inactiveCount = drivers.filter((driver) => ["离职", "停岗"].includes(driver.driverState)).length;
-  const pendingDocumentCount = drivers.filter((driver) => getDriverExpiryInfo(driver).key !== "normal").length;
+  const ownDrivers = drivers.filter((driver) => driver.driverType === "自有司机");
+  const idleCount = ownDrivers.filter((driver) => driver.driverState === "空闲").length;
+  const transportingCount = ownDrivers.filter((driver) => driver.driverState === "运输中").length;
+  const disabledCount = ownDrivers.filter((driver) => driver.driverState === "停用").length;
 
   document.querySelector("#driverSummaryCards").innerHTML = `
     <div class="reminder-card driver-total-card">
       <strong>司机总数</strong>
-      <span>${drivers.length}</span>
+      <span>${ownDrivers.length}</span>
       <small>已建立司机档案</small>
     </div>
     <div class="reminder-card driver-active-card">
-      <strong>在职司机</strong>
-      <span>${activeCount}</span>
+      <strong>空闲司机</strong>
+      <span>${idleCount}</span>
       <small>当前可参与派车</small>
     </div>
     <div class="reminder-card driver-onboarding-card">
-      <strong>待处理人员</strong>
-      <span>${onboardingCount + inactiveCount}</span>
-      <small>待入职 ${onboardingCount} / 离职停岗 ${inactiveCount}</small>
+      <strong>运输中司机</strong>
+      <span>${transportingCount}</span>
+      <small>当前已有运输任务</small>
     </div>
     <div class="reminder-card driver-warning-card">
-      <strong>证件待处理</strong>
-      <span>${pendingDocumentCount}</span>
-      <small>临期或已过期证件</small>
+      <strong>停用司机</strong>
+      <span>${disabledCount}</span>
+      <small>当前不参与派车</small>
     </div>
   `;
 }
@@ -1057,6 +1390,10 @@ function renderDriverRows(rows) {
   driverBody.innerHTML = rows
     .map((driver) => {
       const expiryInfo = getDriverExpiryInfo(driver);
+      const certificationInfo = getCertificationInfo(driver.certificationStatus);
+      const certificationAction = canReviewDriverCertification(driver)
+        ? `<button class="link-btn" data-review-driver="${driver.id}" type="button">认证审核</button>`
+        : `<button class="link-btn" data-view-certification="${driver.id}" type="button">查看认证资料</button>`;
       return `
         <tr class="${expiryInfo.rowClass}">
           <td><input class="driver-row-check" data-driver-id="${driver.id}" type="checkbox" ${selectedDriverIds.has(driver.id) ? "checked" : ""} /></td>
@@ -1064,16 +1401,18 @@ function renderDriverRows(rows) {
           <td>${driver.gender}</td>
           <td>${driver.phone}</td>
           <td>${driver.idCard}</td>
-          <td>${driver.driverType}</td>
           <td><span class="state-pill ${getDriverStateClass(driver.driverState)}">${driver.driverState}</span></td>
+          <td><span class="certification-badge ${certificationInfo.className}">${certificationInfo.label}</span></td>
           <td>${driver.fleet}</td>
           <td>${driver.entryDate}</td>
           <td>${driver.licenseClass}</td>
           <td>${driver.licenseExpiry}</td>
           <td>${driver.qualificationExpiry}</td>
           <td><span class="due-pill ${expiryInfo.key}">${expiryInfo.label}</span></td>
-          <td>
+          <td class="fixed-action-column">
             <div class="vehicle-action-group">
+              <button class="link-btn" data-detail-driver="${driver.id}" type="button">详情</button>
+              ${certificationAction}
               <button class="link-btn" data-edit-driver="${driver.id}" type="button">编辑</button>
               <button class="link-btn delete-btn" data-delete-driver="${driver.id}" type="button">删除</button>
             </div>
@@ -1082,6 +1421,103 @@ function renderDriverRows(rows) {
     })
     .join("");
   updateDriverSelection();
+}
+
+function renderDriverDetail(driver) {
+  if (!driver) {
+    document.querySelector("#driverDetailBase").innerHTML = "";
+    return;
+  }
+
+  const certificationInfo = getCertificationInfo(driver.certificationStatus);
+  const detailGroups = [
+    {
+      title: "基础资料",
+      description: "身份、联系信息与当前在岗情况",
+      items: [
+        ["姓名", driver.name],
+        ["性别", driver.gender],
+        ["身份证号码", driver.idCard],
+        ["手机号", driver.phone],
+        ["住址", driver.address],
+        ["紧急联系人", driver.emergencyContact],
+        ["紧急联系电话", driver.emergencyPhone],
+        ["入职日期", driver.entryDate],
+        ["司机类型", driver.driverType],
+        ["司机状态", driver.driverState],
+        ["所属车队", driver.fleet],
+        ["认证状态", certificationInfo.label],
+      ],
+    },
+    {
+      title: "驾驶证",
+      description: "准驾资格、证件期限与电子附件",
+      items: [
+        ["驾驶证号", driver.licenseNo],
+        ["准驾车型", driver.licenseClass],
+        ["发证日期", driver.licenseIssueDate],
+        ["有效期截止日期", driver.licenseExpiry],
+        ["驾驶证附件", driver.licenseAttachment],
+      ],
+    },
+    {
+      title: "道路运输从业资格证",
+      description: "从业资格与证件有效期",
+      items: [
+        ["资格证号", driver.qualificationNo],
+        ["有效期截止日期", driver.qualificationExpiry],
+        ["证件附件", driver.qualificationAttachment],
+      ],
+    },
+    {
+      title: "其他信息",
+      description: "结算账户与档案备注",
+      items: [
+        ["银行卡号", driver.bankCard],
+        ["开户银行", driver.bankName],
+        ["备注", driver.remark],
+      ],
+    },
+  ];
+
+  document.querySelector("#detailDriverTitle").textContent = driver.name;
+  document.querySelector("#detailDriverMeta").textContent = `${driver.driverType} / ${driver.licenseClass}`;
+  const detailDriverState = document.querySelector("#detailDriverState");
+  detailDriverState.textContent = driver.driverState;
+  detailDriverState.className = `state-pill ${getDriverStateClass(driver.driverState)}`;
+  document.querySelector("#detailDriverPhone").textContent = driver.phone || "—";
+  document.querySelector("#detailDriverFleet").textContent = driver.fleet || "—";
+  document.querySelector("#detailDriverEntryDate").textContent = driver.entryDate || "—";
+  const detailDriverCertification = document.querySelector("#detailDriverCertification");
+  detailDriverCertification.textContent = certificationInfo.label;
+  detailDriverCertification.className = `certification-badge ${certificationInfo.className}`;
+  document.querySelector("#driverDetailBase").innerHTML = detailGroups
+    .map(
+      (group) => `
+        <section class="vehicle-info-section" aria-label="${group.title}">
+          <header>
+            <div>
+              <strong>${group.title}</strong>
+              <span>${group.description}</span>
+            </div>
+            <small>${group.items.length} 项</small>
+          </header>
+          <dl class="vehicle-info-list">
+            ${group.items
+              .map(
+                ([label, value]) => `
+                  <div class="detail-item">
+                    <dt>${label}</dt>
+                    <dd>${value || "—"}</dd>
+                  </div>
+                `
+              )
+              .join("")}
+          </dl>
+        </section>
+      `
+    )
+    .join("");
 }
 
 function renderDriverPagination(total) {
@@ -1102,7 +1538,22 @@ function renderDriverPage(rows = drivers) {
   renderDriverSummaryCards();
   renderDriverRows(rows.slice(start, start + driverPageSize));
   document.querySelector("#driverResultText").textContent = `共 ${rows.length} 条司机档案，当前第 ${driverCurrentPage} / ${Math.max(1, Math.ceil(rows.length / driverPageSize))} 页`;
-  document.querySelector("#driverActiveBadge").textContent = `在职 ${drivers.filter((driver) => driver.driverState === "在职").length}`;
+  document.querySelector("#driverActiveBadge").textContent = `空闲 ${availableOwnDrivers().length}`;
+}
+
+function openDriverDetail(driverId) {
+  const driver = drivers.find((item) => item.id === driverId);
+  if (!driver) return;
+  selectedDriverDetail = driver;
+  renderDriverDetail(driver);
+  document.querySelector("#driverPage").classList.add("detail-mode");
+  driverDetailPanel.classList.add("open");
+  driverDetailPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeDriverDetail() {
+  document.querySelector("#driverPage").classList.remove("detail-mode");
+  driverDetailPanel.classList.remove("open");
 }
 
 function openDriverForm(mode, driverId = "") {
@@ -1113,10 +1564,12 @@ function openDriverForm(mode, driverId = "") {
   document.querySelector("#driverFormTitle").textContent = mode === "edit" ? "编辑司机档案" : "新增司机档案";
   driverForm.dataset.licenseAttachment = driver?.licenseAttachment || "";
   driverForm.dataset.qualificationAttachment = driver?.qualificationAttachment || "";
+  window.AttachmentPicker?.setExisting(driverForm.elements.licenseAttachment, driver?.licenseAttachment === "未上传" ? "" : driver?.licenseAttachment || "");
+  window.AttachmentPicker?.setExisting(driverForm.elements.qualificationAttachment, driver?.qualificationAttachment === "未上传" ? "" : driver?.qualificationAttachment || "");
 
   if (driver) {
     [
-      "name", "gender", "idCard", "phone", "address", "emergencyContact", "emergencyPhone", "entryDate", "driverType",
+      "name", "gender", "idCard", "phone", "address", "emergencyContact", "emergencyPhone", "entryDate",
       "driverState", "fleet", "licenseNo", "licenseClass", "licenseIssueDate", "licenseExpiry", "qualificationNo",
       "qualificationExpiry", "bankCard", "bankName", "remark",
     ].forEach((fieldName) => {
@@ -1135,19 +1588,15 @@ function closeDriverForm() {
 
 function getDriverFormData() {
   const formData = new FormData(driverForm);
-  const licenseFile = formData.get("licenseAttachment");
-  const qualificationFile = formData.get("qualificationAttachment");
   const textFields = [
-    "name", "gender", "idCard", "phone", "address", "emergencyContact", "emergencyPhone", "entryDate", "driverType",
+    "name", "gender", "idCard", "phone", "address", "emergencyContact", "emergencyPhone", "entryDate",
     "driverState", "fleet", "licenseNo", "licenseClass", "licenseIssueDate", "licenseExpiry", "qualificationNo",
     "qualificationExpiry", "bankCard", "bankName", "remark",
   ];
   const data = Object.fromEntries(textFields.map((fieldName) => [fieldName, String(formData.get(fieldName) || "").trim()]));
-  data.licenseAttachment = licenseFile instanceof File && licenseFile.name ? licenseFile.name : driverForm.dataset.licenseAttachment || "未上传";
-  data.qualificationAttachment =
-    qualificationFile instanceof File && qualificationFile.name
-      ? qualificationFile.name
-      : driverForm.dataset.qualificationAttachment || "未上传";
+  data.driverType = "自有司机";
+  data.licenseAttachment = window.AttachmentPicker?.getValue(driverForm.elements.licenseAttachment) || "未上传";
+  data.qualificationAttachment = window.AttachmentPicker?.getValue(driverForm.elements.qualificationAttachment) || "未上传";
   return data;
 }
 
@@ -1169,7 +1618,9 @@ function deleteDriver(driverId) {
   if (index < 0) return;
   drivers.splice(index, 1);
   selectedDriverIds.delete(driverId);
+  if (selectedDriverDetail?.id === driverId) selectedDriverDetail = null;
   closeDeleteDriverDialog();
+  closeDriverDetail();
   renderDriverPage(getFilteredDrivers());
 }
 
@@ -1222,7 +1673,7 @@ function renderRouteRows(rows) {
         <td class="money">${formatMoney(route.estimatedRevenue)}</td><td>${route.commissionType === "rate" ? "按收入比例提成" : "固定金额提成"}</td>
         <td>${commissionDisplay}<small class="commission-result">预计 ${formatMoney(calculateRouteCommission(route))}</small></td>
         <td><span class="route-state ${route.routeState === "启用" ? "enabled" : "disabled"}">${route.routeState}</span></td><td>${route.remark || "-"}</td>
-        <td><div class="vehicle-action-group"><button class="link-btn" data-edit-route="${route.id}" type="button">编辑</button><button class="link-btn delete-btn" data-delete-route="${route.id}" type="button">删除</button></div></td>
+        <td class="fixed-action-column"><div class="vehicle-action-group"><button class="link-btn" data-edit-route="${route.id}" type="button">编辑</button><button class="link-btn delete-btn" data-delete-route="${route.id}" type="button">删除</button></div></td>
       </tr>`;
   }).join("");
   updateRouteSelection();
@@ -1253,7 +1704,7 @@ function populateRouteAssociations() {
   const vehicleSelect = document.querySelector("#routeDefaultVehicle");
   const driverSelect = document.querySelector("#routeDefaultDriver");
   vehicleSelect.innerHTML = '<option value="">不指定</option>' + vehicles.filter((vehicle) => vehicle.vehicleState === "在用").map((vehicle) => `<option>${vehicle.plateNo}</option>`).join("");
-  driverSelect.innerHTML = '<option value="">不指定</option>' + drivers.filter((driver) => driver.driverState === "在职").map((driver) => `<option>${driver.name}</option>`).join("");
+  driverSelect.innerHTML = '<option value="">不指定</option>' + enabledOwnDrivers().map((driver) => `<option>${driver.name}</option>`).join("");
 }
 
 function updateRouteCommissionPreview() {
@@ -1273,7 +1724,7 @@ function openRouteForm(mode, routeId = "") {
   const route = fixedRoutes.find((item) => item.id === routeId);
   document.querySelector("#routeFormTitle").textContent = mode === "edit" ? "编辑固定线路" : "新增固定线路";
   if (route) {
-    ["routeCode", "routeName", "origin", "destination", "viaPoints", "routeState", "remark", "estimatedRevenue", "baseFreight", "commissionType", "commissionValue", "commissionRemark", "defaultVehicle", "defaultDriver"].forEach((fieldName) => {
+    ["routeName", "origin", "destination", "viaPoints", "routeState", "remark", "estimatedRevenue", "baseFreight", "commissionType", "commissionValue", "commissionRemark", "defaultVehicle", "defaultDriver"].forEach((fieldName) => {
       routeForm.elements[fieldName].value = route[fieldName];
     });
   }
@@ -1291,13 +1742,22 @@ function closeRouteForm() {
 function getRouteFormData() {
   const formData = new FormData(routeForm);
   return {
-    routeCode: String(formData.get("routeCode") || "").trim(), routeName: String(formData.get("routeName") || "").trim(),
+    routeName: String(formData.get("routeName") || "").trim(),
     origin: String(formData.get("origin") || "").trim(), destination: String(formData.get("destination") || "").trim(),
     viaPoints: String(formData.get("viaPoints") || "").trim(), routeState: formData.get("routeState"), remark: String(formData.get("remark") || "").trim(),
     estimatedRevenue: Number(formData.get("estimatedRevenue")) || 0, baseFreight: Number(formData.get("baseFreight")) || 0, commissionType: formData.get("commissionType"),
     commissionValue: Number(formData.get("commissionValue")) || 0, commissionRemark: String(formData.get("commissionRemark") || "").trim(),
     defaultVehicle: formData.get("defaultVehicle"), defaultDriver: formData.get("defaultDriver"),
   };
+}
+
+let routeSequence = 0;
+function getNextRouteCode() {
+  routeSequence = Math.max(routeSequence, ...fixedRoutes.map((route) => {
+    const match = /^XL-(?:[A-Z]+-)?(\d+)$/.exec(route.routeCode);
+    return match ? Number(match[1]) : 0;
+  }));
+  return `XL-${String(++routeSequence).padStart(3, "0")}`;
 }
 
 function requestDeleteRoute(routeId) {
@@ -1338,11 +1798,33 @@ const waybillRouteMap = {
 };
 
 function getRouteForWaybill(waybillNo) {
-  return fixedRoutes.find((route) => route.id === waybillRouteMap[waybillNo]) || fixedRoutes[0];
+  const waybill = waybills.find((item) => item.waybillNo === waybillNo);
+  return fixedRoutes.find((route) => route.id === (waybillRouteMap[waybillNo] || waybill?.routeId)) || null;
 }
 
 function getDispatchStatusClass(status) {
   return { 待派单: "pending", 已派单: "assigned", 运输中: "moving", 已完成: "completed", 取消: "cancelled" }[status] || "pending";
+}
+
+const seedAutoDispatchIds = new Set(["PD-1001", "PD-1003"]);
+
+function getDispatchMode(dispatch) {
+  if (dispatch.status === "待派单") return "pending";
+  if (dispatch.dispatchMode === "auto" || dispatch.dispatchMode === "manual") return dispatch.dispatchMode;
+  return seedAutoDispatchIds.has(dispatch.id) ? "auto" : "manual";
+}
+
+function renderDispatchStats() {
+  document.querySelector("#dispatchTotalStat").textContent = dispatches.length;
+  document.querySelector("#dispatchAutoStat").textContent = dispatches.filter((item) => getDispatchMode(item) === "auto").length;
+  document.querySelector("#dispatchManualStat").textContent = dispatches.filter((item) => getDispatchMode(item) === "manual").length;
+  document.querySelector("#dispatchPendingStat").textContent = dispatches.filter((item) => getDispatchMode(item) === "pending").length;
+  const mode = dispatchQueryForm.elements.dispatchMode.value;
+  document.querySelectorAll("[data-dispatch-mode]").forEach((button) => {
+    const active = button.dataset.dispatchMode === mode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function populateDispatchFilters() {
@@ -1351,7 +1833,7 @@ function populateDispatchFilters() {
   const vehicleFilter = document.querySelector("#dispatchVehicleFilter");
   const currentValues = { route: routeFilter.value, driver: driverFilter.value, vehicle: vehicleFilter.value };
   routeFilter.innerHTML = '<option value="">全部线路</option>' + fixedRoutes.map((route) => `<option value="${route.id}">${route.routeName}</option>`).join("");
-  driverFilter.innerHTML = '<option value="">全部司机</option>' + drivers.map((driver) => `<option value="${driver.name}">${driver.name}</option>`).join("");
+  driverFilter.innerHTML = '<option value="">全部司机</option>' + drivers.filter((driver) => driver.driverType === "自有司机").map((driver) => `<option value="${driver.name}">${driver.name}</option>`).join("");
   vehicleFilter.innerHTML = '<option value="">全部车辆</option>' + vehicles.map((vehicle) => `<option value="${vehicle.plateNo}">${vehicle.plateNo}</option>`).join("");
   routeFilter.value = currentValues.route;
   driverFilter.value = currentValues.driver;
@@ -1365,13 +1847,15 @@ function filterDispatches(formData) {
   const driverName = formData.get("driverName");
   const plateNo = formData.get("plateNo");
   const status = formData.get("dispatchStatus");
+  const mode = formData.get("dispatchMode");
   return dispatches.filter((dispatch) =>
     normalize(dispatch.waybillNo).includes(waybillNo) &&
     (!orderDate || dispatch.orderDate === orderDate) &&
     (!routeId || dispatch.routeId === routeId) &&
     (!driverName || dispatch.driverName === driverName) &&
     (!plateNo || dispatch.vehicleId === plateNo) &&
-    (!status || dispatch.status === status)
+    (!status || dispatch.status === status) &&
+    (!mode || getDispatchMode(dispatch) === mode)
   );
 }
 
@@ -1389,7 +1873,7 @@ function updateDispatchSelection() {
 function renderDispatchRows(rows) {
   renderedDispatchIds = rows.map((dispatch) => dispatch.id);
   if (!rows.length) {
-    dispatchBody.innerHTML = '<tr><td class="no-data-cell" colspan="12">暂无符合条件的派单记录</td></tr>';
+    dispatchBody.innerHTML = '<tr><td class="no-data-cell" colspan="13">暂无符合条件的派单记录</td></tr>';
     updateDispatchSelection();
     return;
   }
@@ -1397,9 +1881,9 @@ function renderDispatchRows(rows) {
   dispatchBody.innerHTML = rows.map((dispatch) => `
     <tr>
       <td><input class="dispatch-row-check" data-dispatch-id="${dispatch.id}" type="checkbox" ${selectedDispatchIds.has(dispatch.id) ? "checked" : ""} /></td>
-      <td><strong class="primary-text">${dispatch.waybillNo}</strong></td><td>${dispatch.routeName}</td><td>${dispatch.origin}</td><td>${dispatch.destination}</td><td>${dispatch.dispatchTime || "-"}</td>
+      <td><strong class="primary-text">${dispatch.waybillNo}</strong></td><td><span class="dispatch-mode ${getDispatchMode(dispatch)}">${{ auto: "自动派单", manual: "手动派单", pending: "待分配" }[getDispatchMode(dispatch)]}</span></td><td>${dispatch.routeName}</td><td>${dispatch.origin}</td><td>${dispatch.destination}</td><td>${dispatch.dispatchTime || "-"}</td>
       <td>${dispatch.driverName}</td><td>${dispatch.phone}</td><td>${dispatch.vehicleId || "-"}</td><td><span class="dispatch-status ${getDispatchStatusClass(dispatch.status)}">${dispatch.status}</span></td><td><span class="dispatch-node">${dispatch.currentNode}</span></td>
-      <td><div class="vehicle-action-group"><button class="link-btn" data-view-dispatch="${dispatch.id}" type="button">查看</button>${["待派单", "已派单"].includes(dispatch.status) ? `<button class="link-btn delete-btn revoke-btn" data-revoke-dispatch="${dispatch.id}" type="button">撤销</button>` : ""}</div></td>
+      <td class="fixed-action-column"><div class="vehicle-action-group"><button class="link-btn" data-view-dispatch="${dispatch.id}" type="button">查看</button>${["待派单", "已派单"].includes(dispatch.status) ? `<button class="link-btn delete-btn revoke-btn" data-revoke-dispatch="${dispatch.id}" type="button">撤销</button>` : ""}</div></td>
     </tr>`).join("");
   updateDispatchSelection();
 }
@@ -1418,6 +1902,7 @@ function renderDispatchPagination(total) {
 function renderDispatchPage(rows = dispatches) {
   dispatchPageSize = Number(dispatchPageSizeSelect.value) || 10;
   populateDispatchFilters();
+  renderDispatchStats();
   renderDispatchPagination(rows.length);
   const start = (dispatchCurrentPage - 1) * dispatchPageSize;
   renderDispatchRows(rows.slice(start, start + dispatchPageSize));
@@ -1429,31 +1914,33 @@ function populateDispatchFormOptions() {
   const waybillSelect = document.querySelector("#dispatchWaybillSelect");
   const driverSelect = document.querySelector("#dispatchDriverSelect");
   const vehicleSelect = document.querySelector("#dispatchVehicleSelect");
-  waybillSelect.innerHTML = '<option value="">请选择已有运单</option>' + waybills.map((waybill) => `<option value="${waybill.waybillNo}">${waybill.waybillNo} / ${waybill.customerName}</option>`).join("");
-  driverSelect.innerHTML = '<option value="">请选择司机</option>' + drivers.filter((driver) => driver.driverState === "在职").map((driver) => `<option value="${driver.id}">${driver.name} / ${driver.phone}</option>`).join("");
+  waybillSelect.innerHTML = '<option value="">请选择已有运单</option>' + waybills.filter((waybill) =>
+    !dispatches.some((dispatch) => dispatch.waybillNo === waybill.waybillNo && ["已派单", "运输中", "已完成"].includes(dispatch.status))
+  ).map((waybill) => `<option value="${waybill.waybillNo}">${waybill.waybillNo} / ${waybill.customerName}</option>`).join("");
+  driverSelect.innerHTML = '<option value="">请选择司机</option>' + availableOwnDrivers().map((driver) => `<option value="${driver.id}">${driver.name} / ${driver.phone}</option>`).join("");
   vehicleSelect.innerHTML = '<option value="">请选择车辆</option>' + vehicles.filter((vehicle) => vehicle.vehicleState === "在用").map((vehicle) => `<option value="${vehicle.plateNo}">${vehicle.plateNo} / ${vehicle.vehicleType}</option>`).join("");
 }
 
 function updateDispatchFormFromWaybill() {
   const waybill = waybills.find((item) => item.waybillNo === dispatchForm.elements.waybillId.value);
   const route = waybill ? getRouteForWaybill(waybill.waybillNo) : null;
+  dispatchForm.elements.driverId.value = "";
+  dispatchForm.elements.vehicleId.value = "";
+  dispatchForm.elements.driverId.disabled = !waybill;
+  dispatchForm.elements.vehicleId.disabled = !waybill;
   document.querySelector("#dispatchRouteName").value = route ? `${route.routeCode} / ${route.routeName}` : "";
   document.querySelector("#dispatchOrigin").value = route?.origin || waybill?.loadAddress || "";
   document.querySelector("#dispatchDestination").value = route?.destination || "";
   document.querySelector("#dispatchLoadAddress").value = waybill?.loadAddress || "";
-  document.querySelector("#dispatchBoxes").value = waybill ? `${waybill.boxNo1}${waybill.boxNo2 !== "-" ? ` / ${waybill.boxNo2}` : ""} / ${waybill.boxType}` : "";
+  document.querySelector("#dispatchBoxes").value = waybill ? formatWaybillBoxes(waybill) : "";
   document.querySelector("#dispatchRevenue").value = route ? formatMoney(route.estimatedRevenue) : "";
   document.querySelector("#dispatchCommission").value = route ? formatMoney(calculateRouteCommission(route)) : "";
-  if (route?.defaultDriver) {
-    const driver = drivers.find((item) => item.name === route.defaultDriver && item.driverState === "在职");
-    if (driver) dispatchForm.elements.driverId.value = driver.id;
-  }
-  if (route?.defaultVehicle) dispatchForm.elements.vehicleId.value = route.defaultVehicle;
 }
 
 function openDispatchForm() {
   dispatchForm.reset();
   populateDispatchFormOptions();
+  dispatchForm.elements.waybillId.value = "";
   updateDispatchFormFromWaybill();
   dispatchDialog.showModal();
 }
@@ -1461,6 +1948,8 @@ function openDispatchForm() {
 function closeDispatchForm() {
   if (dispatchDialog.open) dispatchDialog.close();
   dispatchForm.reset();
+  dispatchForm.elements.waybillId.value = "";
+  updateDispatchFormFromWaybill();
 }
 
 function openDispatchDetail(dispatchId) {
@@ -1471,7 +1960,7 @@ function openDispatchDetail(dispatchId) {
     <div class="timeline-item ${index === dispatch.timeline.length - 1 ? "current" : ""}"><span class="timeline-dot"></span><div class="timeline-main"><strong>${item.node}</strong><time>${item.time}</time><p>${item.desc}</p>${item.photos.length ? `<div class="photo-list">${item.photos.map((photo) => `<span class="photo-chip">▧ ${photo}</span>`).join("")}</div>` : ""}</div></div>`).join("") : '<div class="empty-detail">暂无节点上报记录</div>';
   document.querySelector("#dispatchDetailContent").innerHTML = `
     <div class="dispatch-detail-summary"><div><span>派单状态</span><strong class="dispatch-status ${getDispatchStatusClass(dispatch.status)}">${dispatch.status}</strong></div><div><span>当前节点</span><strong>${dispatch.currentNode}</strong></div><div><span>司机 / 车辆</span><strong>${dispatch.driverName} / ${dispatch.vehicleId || "待分配"}</strong></div><div><span>消息推送</span><strong class="push-success">${dispatch.pushed ? "已推送小程序" : "待推送"}</strong></div></div>
-    <div class="dispatch-info-grid"><div><span>起运地</span><strong>${dispatch.origin}</strong></div><div><span>目的地</span><strong>${dispatch.destination}</strong></div><div><span>装卸地址</span><strong>${dispatch.loadAddress || dispatch.origin}</strong></div><div><span>箱信息</span><strong>${dispatch.boxes}</strong></div><div><span>预估收入 / 司机提成</span><strong>${formatMoney(dispatch.estimatedRevenue)} / ${formatMoney(dispatch.commission)}</strong></div><div><span>联系电话</span><strong>${dispatch.phone}</strong></div><div><span>派单备注</span><strong>${dispatch.note || "-"}</strong></div></div>
+    <div class="dispatch-info-grid"><div><span>派单方式</span><strong>${{ auto: "自动派单", manual: "手动派单", pending: "待分配" }[getDispatchMode(dispatch)]}</strong></div><div><span>起运地</span><strong>${dispatch.origin}</strong></div><div><span>目的地</span><strong>${dispatch.destination}</strong></div><div><span>装卸地址</span><strong>${dispatch.loadAddress || dispatch.origin}</strong></div><div><span>箱信息</span><strong>${dispatch.boxes}</strong></div><div><span>预估收入 / 司机提成</span><strong>${formatMoney(dispatch.estimatedRevenue)} / ${formatMoney(dispatch.commission)}</strong></div><div><span>联系电话</span><strong>${dispatch.phone}</strong></div><div><span>派单备注</span><strong>${dispatch.note || "-"}</strong></div></div>
     <section class="timeline-section"><div class="detail-section-title"><strong>运输节点时间线</strong><span>司机小程序最新上报记录</span></div><div class="timeline">${timeline}</div></section>`;
   dispatchDetailDialog.showModal();
 }
@@ -1495,9 +1984,11 @@ function revokeDispatch(dispatchId) {
   dispatch.status = "取消";
   dispatch.currentNode = "待派单";
   dispatch.timeline.push({ node: "取消", time: "2026-09-16 11:20", desc: "未开始提货，后台撤销派单并回收小程序单据", photos: [] });
+  syncDriverOperationalStates();
   saveDispatches();
   closeRevokeDispatchDialog();
   renderDispatchPage(getFilteredDispatches());
+  renderDriverPage(getFilteredDrivers());
 }
 
 function switchModule(moduleName) {
@@ -1553,6 +2044,7 @@ function switchPage(pageName) {
     closeVehicleDetail();
   }
   if (meta.view === "driver") {
+    closeDriverDetail();
     renderDriverPage(getFilteredDrivers());
   }
   if (meta.view === "route") {
@@ -1560,6 +2052,12 @@ function switchPage(pageName) {
   }
   if (meta.view === "dispatch") {
     renderDispatchPage(getFilteredDispatches());
+  }
+  if (meta.view === "autoDispatch") {
+    window.AutoDispatchManager?.refresh();
+  }
+  if (meta.view === "customer") {
+    window.CustomerManager?.render();
   }
 }
 
@@ -1595,10 +2093,65 @@ document.addEventListener("click", (event) => {
   }
 });
 
-function getNextWaybillNo() {
-  const maxNumber = Math.max(0, ...waybills.map((item) => Number(item.waybillNo.slice(-3)) || 0));
-  const datePart = today.toISOString().slice(0, 10).replaceAll("-", "");
-  return `WB${datePart}${String(maxNumber + 1).padStart(3, "0")}`;
+function getCurrentOrderDate() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getNextWaybillNo(orderDate) {
+  const datePart = orderDate.replaceAll("-", "");
+  const prefix = `WB${datePart}`;
+  const maxNumber = waybills.reduce((max, item) => {
+    const number = item.waybillNo?.startsWith(prefix) ? item.waybillNo.slice(prefix.length) : "";
+    return /^\d{3,}$/.test(number) ? Math.max(max, Number(number)) : max;
+  }, 0);
+  return `${prefix}${String(maxNumber + 1).padStart(3, "0")}`;
+}
+
+function setGeneratedWaybillFields(orderDate) {
+  const waybillNo = getNextWaybillNo(orderDate);
+  waybillForm.elements.waybillNo.value = waybillNo;
+  waybillForm.elements.orderDate.value = orderDate;
+  document.querySelector("#generatedWaybillNo").textContent = waybillNo;
+  document.querySelector("#generatedOrderDate").textContent = orderDate;
+  return waybillNo;
+}
+
+function updateContainerCount() {
+  document.querySelector("#waybillContainerCount").textContent = waybillContainerBody.querySelectorAll("tr").length;
+}
+
+function createContainerRow(values = {}) {
+  const route = fixedRoutes.find((item) => item.id === waybillForm.elements.routeId.value);
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input class="container-box-no" placeholder="请输入箱号" /></td>
+    <td><input class="container-seal-no" placeholder="请输入封号" /></td>
+    <td><select class="container-box-type"><option>40HQ</option><option>40GP</option><option>20GP</option><option>45HQ</option></select></td>
+    <td><input class="container-pickup-point" placeholder="请输入提箱点" /></td>
+    <td><input class="container-return-point" placeholder="请输入还箱点" /></td>
+    <td><button class="fee-delete container-delete" type="button">删除</button></td>`;
+  waybillContainerBody.appendChild(row);
+  row.querySelector(".container-box-no").value = values.boxNo || "";
+  row.querySelector(".container-seal-no").value = values.sealNo || "";
+  row.querySelector(".container-box-type").value = values.boxType || "40HQ";
+  row.querySelector(".container-pickup-point").value = values.pickupPoint || "";
+  const returnPoint = values.returnPoint || route?.destination || "";
+  const returnInput = row.querySelector(".container-return-point");
+  returnInput.value = returnPoint;
+  returnInput.dataset.routeValue = values.returnPoint ? "" : returnPoint;
+  updateContainerCount();
+  return row;
+}
+
+function getContainerRows() {
+  return [...waybillContainerBody.querySelectorAll("tr")].map((row) => ({
+    boxNo: row.querySelector(".container-box-no").value.trim(),
+    sealNo: row.querySelector(".container-seal-no").value.trim(),
+    boxType: row.querySelector(".container-box-type").value,
+    pickupPoint: row.querySelector(".container-pickup-point").value.trim(),
+    returnPoint: row.querySelector(".container-return-point").value.trim(),
+  }));
 }
 
 function createFeeRow(type, values = {}) {
@@ -1660,21 +2213,42 @@ function updateWaybillTotals() {
   document.querySelector("#waybillProfitTotal").textContent = formatMoney(receivable - payable);
 }
 
-function populateWaybillDispatchOptions() {
-  const vehicleSelect = document.querySelector("#waybillVehicle");
-  const driverSelect = document.querySelector("#waybillDriver");
-  vehicleSelect.innerHTML = '<option value="">请选择车辆</option>' + vehicles.filter((vehicle) => vehicle.vehicleState === "在用").map((vehicle) => `<option value="${vehicle.plateNo}">${vehicle.plateNo} / ${vehicle.vehicleType}</option>`).join("");
-  driverSelect.innerHTML = '<option value="">请选择司机</option>' + drivers.filter((driver) => driver.driverState === "在职").map((driver) => `<option value="${driver.id}">${driver.name} / ${driver.phone}</option>`).join("");
+let selectedWaybillCustomer = "";
+let lastCustomerAddress = "";
+let lastRouteAddress = "";
+
+function fillWaybillFromCustomer() {
+  const customer = window.CustomerManager?.getActiveCustomerByName(waybillForm.elements.customerName.value);
+  const addressField = waybillForm.elements.loadAddress;
+  if (!customer) {
+    if (selectedWaybillCustomer && addressField.value === lastCustomerAddress) addressField.value = "";
+    selectedWaybillCustomer = "";
+    lastCustomerAddress = "";
+    return;
+  }
+  if (selectedWaybillCustomer === customer.customerName) return;
+  const address = [customer.loadAddress, customer.unloadAddress].filter(Boolean).join(" / ");
+  addressField.value = address;
+  selectedWaybillCustomer = customer.customerName;
+  lastCustomerAddress = address;
+  lastRouteAddress = "";
 }
 
 function fillWaybillFromRoute() {
   const route = fixedRoutes.find((item) => item.id === waybillForm.elements.routeId.value);
   if (!route) return;
-  waybillForm.elements.loadAddress.value = `${route.origin} / ${route.destination}`;
-  waybillForm.elements.returnPoint.value = route.destination;
-  if (route.defaultVehicle) waybillForm.elements.plateNo.value = route.defaultVehicle;
-  const driver = drivers.find((item) => item.name === route.defaultDriver);
-  if (driver) waybillForm.elements.driverId.value = driver.id;
+  const addressField = waybillForm.elements.loadAddress;
+  const customer = window.CustomerManager?.getActiveCustomerByName(waybillForm.elements.customerName.value);
+  if (!customer && (!addressField.value.trim() || addressField.value === lastRouteAddress)) {
+    lastRouteAddress = `${route.origin} / ${route.destination}`;
+    addressField.value = lastRouteAddress;
+  }
+  waybillContainerBody.querySelectorAll(".container-return-point").forEach((input) => {
+    if (!input.value.trim() || input.value === input.dataset.routeValue) {
+      input.value = route.destination;
+      input.dataset.routeValue = route.destination;
+    }
+  });
 }
 
 function loadRouteFee(type) {
@@ -1688,21 +2262,24 @@ function loadRouteFee(type) {
   if (type === "receivable") {
     createFeeRow(type, { target: "客户", unit: waybillForm.elements.customerName.value, kind: "运费", price: route.estimatedRevenue });
   } else {
-    createFeeRow(type, { target: "供应商", unit: waybillForm.elements.carrier.value || route.defaultDriver || "", kind: "运费", price: route.baseFreight });
+    createFeeRow(type, { target: "供应商", unit: "", kind: "运费", price: route.baseFreight });
     createFeeRow(type, { target: "司机", unit: route.defaultDriver || "", kind: "司机提成", price: calculateRouteCommission(route) });
   }
 }
 
 function openWaybillForm() {
   waybillForm.reset();
+  selectedWaybillCustomer = "";
+  lastCustomerAddress = "";
+  lastRouteAddress = "";
   refreshWaybillRouteOptions();
-  populateWaybillDispatchOptions();
-  waybillForm.elements.waybillNo.value = getNextWaybillNo();
-  waybillForm.elements.orderDate.value = today.toISOString().slice(0, 10);
+  setGeneratedWaybillFields(getCurrentOrderDate());
   waybillForm.elements.auditState.value = "草拟";
   waybillForm.elements.dispatchable.checked = true;
+  waybillContainerBody.innerHTML = "";
   receivableFeeBody.innerHTML = "";
   payableFeeBody.innerHTML = "";
+  createContainerRow();
   createFeeRow("receivable");
   createFeeRow("payable");
   addDialog.showModal();
@@ -1716,10 +2293,18 @@ function closeWaybillForm() {
 addBtn.addEventListener("click", openWaybillForm);
 document.querySelector("#closeWaybillFormBtn").addEventListener("click", closeWaybillForm);
 document.querySelector("#cancelWaybillFormBtn").addEventListener("click", closeWaybillForm);
-waybillForm.elements.waybillNo.addEventListener("input", () => waybillForm.elements.waybillNo.setCustomValidity(""));
 
 document.querySelectorAll(".add-fee-row").forEach((button) => {
   button.addEventListener("click", () => createFeeRow(button.dataset.feeType));
+});
+
+document.querySelector("#addContainerRowBtn").addEventListener("click", () => createContainerRow());
+waybillContainerBody.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest(".container-delete");
+  if (!deleteButton) return;
+  deleteButton.closest("tr").remove();
+  if (!waybillContainerBody.querySelector("tr")) createContainerRow();
+  updateContainerCount();
 });
 
 document.querySelectorAll(".default-fee").forEach((button) => {
@@ -1740,62 +2325,66 @@ document.querySelectorAll(".default-fee").forEach((button) => {
 
 waybillForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  const orderDate = getCurrentOrderDate();
+  const waybillNo = setGeneratedWaybillFields(orderDate);
   const formData = new FormData(waybillForm);
-  const waybillNo = String(formData.get("waybillNo") || "").trim();
-  if (waybills.some((item) => item.waybillNo === waybillNo)) {
-    waybillForm.elements.waybillNo.setCustomValidity("运单号已存在，请重新输入。");
-    waybillForm.elements.waybillNo.reportValidity();
-    return;
-  }
-  waybillForm.elements.waybillNo.setCustomValidity("");
   const receivableFees = getFeeRows("receivable");
   const payableFees = getFeeRows("payable");
+  const containers = getContainerRows();
+  const boxTypes = [...new Set(containers.map((item) => item.boxType).filter(Boolean))];
+  const returnPoints = [...new Set(containers.map((item) => item.returnPoint).filter(Boolean))];
   const receivable = receivableFees.reduce((sum, item) => sum + item.amount, 0);
   const payable = payableFees.reduce((sum, item) => sum + item.amount, 0);
-  const driver = drivers.find((item) => item.id === formData.get("driverId"));
+  const customer = window.CustomerManager?.getActiveCustomerByName(formData.get("customerName"));
+  const route = fixedRoutes.find((item) => item.id === formData.get("routeId"));
   const newWaybill = {
     waybillNo,
-    orderDate: formData.get("orderDate"),
-    customerId: `KH-${String(waybills.length + 1001)}`,
+    orderDate,
+    routeId: formData.get("routeId") || "",
+    customerId: customer?.customerNo || "-",
     customerName: String(formData.get("customerName") || "").trim(),
     billNo: String(formData.get("billNo") || "").trim() || "-",
     loadAddress: String(formData.get("loadAddress") || "").trim(),
-    dispatchNo: formData.get("plateNo") ? `PC-${waybillNo.slice(-8)}` : "-",
-    dispatchDate: formData.get("dispatchDate") || "-",
-    boxNo1: String(formData.get("boxNo1") || "").trim() || "-",
-    sealNo1: String(formData.get("sealNo1") || "").trim() || "-",
-    boxNo2: String(formData.get("boxNo2") || "").trim() || "-",
-    sealNo2: String(formData.get("sealNo2") || "").trim() || "-",
-    boxType: formData.get("boxType"),
-    boxQuantity: Number(formData.get("boxQuantity")) || 1,
+    dispatchNo: `PC-${waybillNo.slice(-8)}`,
+    dispatchDate: "-",
+    containers,
+    boxNo1: containers[0]?.boxNo || "-",
+    sealNo1: containers[0]?.sealNo || "-",
+    boxNo2: containers[1]?.boxNo || "-",
+    sealNo2: containers[1]?.sealNo || "-",
+    boxType: boxTypes.join(" / ") || "-",
+    boxQuantity: containers.length,
     auditState: "草拟",
     needReceipt: formData.get("needReceipt") ? "是" : "否",
     receivedReceipt: formData.get("receivedReceipt") ? "是" : "否",
     receiptDate: formData.get("receiptDate"),
-    remark: String(formData.get("remark") || formData.get("remark1") || "").trim() || "-",
+    remark: String(formData.get("remark") || "").trim() || "-",
     freight: payable,
     receivable,
-    entryDate: today.toISOString().slice(0, 10),
+    entryDate: orderDate,
     profit: receivable - payable,
     payable,
-    carrier: formData.get("carrier") || "-",
-    returnPoint: String(formData.get("returnPoint") || "").trim() || "-",
+    carrier: "-",
+    returnPoint: returnPoints.join(" / ") || "-",
     dispatchable: Boolean(formData.get("dispatchable")),
-    pickupPoint1: String(formData.get("pickupPoint1") || "").trim(),
-    pickupPoint2: String(formData.get("pickupPoint2") || "").trim(),
-    collectionAmount1: Number(formData.get("collectionAmount1")) || 0,
-    collectionAmount2: Number(formData.get("collectionAmount2")) || 0,
-    dispatchType: formData.get("dispatchType"),
-    plateNo: formData.get("plateNo"),
-    driverId: formData.get("driverId"),
-    driverName: driver?.name || "",
-    arrived: Boolean(formData.get("arrived")),
-    arrivalDate: formData.get("arrivalDate"),
+    pickupPoint1: containers[0]?.pickupPoint || "",
+    pickupPoint2: containers[1]?.pickupPoint || "",
+    plateNo: "",
+    driverId: "",
+    driverName: "",
+    arrived: false,
+    arrivalDate: "",
     receivableFees,
     payableFees,
   };
   waybills.unshift(newWaybill);
   if (formData.get("routeId")) waybillRouteMap[waybillNo] = formData.get("routeId");
+  saveWaybills();
+  createPendingDispatch(newWaybill, route);
+  dispatchQueryForm.reset();
+  dispatchCurrentPage = 1;
+  renderDispatchPage(getFilteredDispatches());
+  window.AutoDispatchManager?.refresh();
   closeWaybillForm();
   renderRows(waybills);
   resultText.textContent = `共 ${waybills.length} 条记录，已新增运单 ${waybillNo}`;
@@ -1963,6 +2552,7 @@ driverQueryForm.addEventListener("submit", (event) => {
 document.querySelector("#addDriverBtn").addEventListener("click", () => openDriverForm("create"));
 document.querySelector("#closeDriverFormBtn").addEventListener("click", closeDriverForm);
 document.querySelector("#cancelDriverFormBtn").addEventListener("click", closeDriverForm);
+document.querySelector("#backToDriverListBtn").addEventListener("click", closeDriverDetail);
 
 driverForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -1977,11 +2567,16 @@ driverForm.addEventListener("submit", (event) => {
   driverForm.elements.idCard.setCustomValidity("");
 
   if (driverFormMode === "edit" && existingDriver) {
+    if (existingDriver.certificationStatus !== "verified") data.driverState = "停用";
+    else if (driverHasActiveDispatch(existingDriver.id) && data.driverState !== "停用") data.driverState = "运输中";
     Object.assign(existingDriver, data);
   } else {
     const nextDriverNumber = Math.max(1000, ...drivers.map((driver) => Number(driver.id.replace(/\D/g, "")) || 0)) + 1;
     data.id = `SJ-${nextDriverNumber}`;
+    data.certificationStatus = "unverified";
+    data.driverState = "停用";
     drivers.unshift(data);
+    saveDriverCertification(data);
   }
   driverCurrentPage = 1;
   closeDriverForm();
@@ -1997,8 +2592,14 @@ driverBody.addEventListener("change", (event) => {
 });
 
 driverBody.addEventListener("click", (event) => {
+  const detailButton = event.target.closest("[data-detail-driver]");
   const editButton = event.target.closest("[data-edit-driver]");
   const deleteButton = event.target.closest("[data-delete-driver]");
+  const reviewButton = event.target.closest("[data-review-driver]");
+  const viewCertificationButton = event.target.closest("[data-view-certification]");
+  if (detailButton) openDriverDetail(detailButton.dataset.detailDriver);
+  if (reviewButton) openCertificationReview(reviewButton.dataset.reviewDriver);
+  if (viewCertificationButton) openCertificationReview(viewCertificationButton.dataset.viewCertification);
   if (editButton) openDriverForm("edit", editButton.dataset.editDriver);
   if (deleteButton) requestDeleteDriver(deleteButton.dataset.deleteDriver);
 });
@@ -2045,6 +2646,11 @@ document.querySelector("#cancelDeleteDriverBtn").addEventListener("click", close
 document.querySelector("#confirmDeleteDriverBtn").addEventListener("click", () => {
   if (deletingDriverId) deleteDriver(deletingDriverId);
 });
+document.querySelector("#closeCertificationReviewBtn").addEventListener("click", closeCertificationReview);
+document.querySelector("#cancelCertificationReviewBtn").addEventListener("click", closeCertificationReview);
+document.querySelector("#approveCertificationBtn").addEventListener("click", () => reviewDriverCertification("verified"));
+document.querySelector("#rejectCertificationBtn").addEventListener("click", () => reviewDriverCertification("rejected"));
+certificationReviewNote.addEventListener("input", () => certificationReviewNote.setCustomValidity(""));
 
 driverForm.elements.idCard.addEventListener("input", () => driverForm.elements.idCard.setCustomValidity(""));
 driverDialog.addEventListener("cancel", (event) => {
@@ -2054,6 +2660,10 @@ driverDialog.addEventListener("cancel", (event) => {
 deleteDriverDialog.addEventListener("cancel", (event) => {
   event.preventDefault();
   closeDeleteDriverDialog();
+});
+driverCertificationDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeCertificationReview();
 });
 
 driverDialog.addEventListener("click", (event) => {
@@ -2068,6 +2678,12 @@ deleteDriverDialog.addEventListener("click", (event) => {
   const isBackdrop =
     event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
   if (isBackdrop) closeDeleteDriverDialog();
+});
+driverCertificationDialog.addEventListener("click", (event) => {
+  const bounds = driverCertificationDialog.getBoundingClientRect();
+  const isBackdrop =
+    event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
+  if (isBackdrop) closeCertificationReview();
 });
 
 document.addEventListener("click", (event) => {
@@ -2090,21 +2706,13 @@ routeForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const data = getRouteFormData();
   const existingRoute = fixedRoutes.find((route) => route.id === editingRouteId);
-  const duplicateCode = fixedRoutes.find((route) => route.routeCode === data.routeCode && route !== existingRoute);
-  if (duplicateCode) {
-    routeForm.elements.routeCode.setCustomValidity("线路编号已存在，请确认后再保存。");
-    routeForm.elements.routeCode.reportValidity();
-    return;
-  }
-  routeForm.elements.routeCode.setCustomValidity("");
   if (routeFormMode === "edit" && existingRoute) Object.assign(existingRoute, data);
-  else fixedRoutes.unshift({ id: `XL-${Date.now()}`, ...data });
+  else fixedRoutes.unshift({ id: `XL-${Date.now()}`, routeCode: getNextRouteCode(), ...data });
   routeCurrentPage = 1;
   closeRouteForm();
   renderRoutePage(getFilteredRoutes());
 });
 
-routeForm.elements.routeCode.addEventListener("input", () => routeForm.elements.routeCode.setCustomValidity(""));
 routeForm.elements.commissionType.addEventListener("change", updateRouteCommissionPreview);
 routeForm.elements.estimatedRevenue.addEventListener("input", updateRouteCommissionPreview);
 routeForm.elements.commissionValue.addEventListener("input", updateRouteCommissionPreview);
@@ -2187,11 +2795,27 @@ document.addEventListener("click", (event) => {
 document.querySelector("#waybillRouteSelect").addEventListener("change", (event) => {
   fillWaybillFromRoute(event.target.value);
 });
+waybillForm.elements.customerName.addEventListener("input", fillWaybillFromCustomer);
+waybillForm.elements.customerName.addEventListener("change", fillWaybillFromCustomer);
 
 dispatchQueryForm.addEventListener("submit", (event) => {
   event.preventDefault();
   dispatchCurrentPage = 1;
   renderDispatchPage(filterDispatches(new FormData(event.currentTarget)));
+});
+
+document.querySelector("#dispatchStats").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dispatch-mode]");
+  if (!button) return;
+  dispatchQueryForm.reset();
+  dispatchQueryForm.elements.dispatchMode.value = button.dataset.dispatchMode;
+  dispatchCurrentPage = 1;
+  renderDispatchPage(getFilteredDispatches());
+});
+
+dispatchQueryForm.elements.dispatchMode.addEventListener("change", () => {
+  dispatchCurrentPage = 1;
+  renderDispatchPage(getFilteredDispatches());
 });
 
 document.querySelector("#addDispatchBtn").addEventListener("click", openDispatchForm);
@@ -2205,10 +2829,12 @@ dispatchForm.addEventListener("submit", (event) => {
   const driver = drivers.find((item) => item.id === dispatchForm.elements.driverId.value);
   const vehicle = vehicles.find((item) => item.plateNo === dispatchForm.elements.vehicleId.value);
   const route = waybill ? getRouteForWaybill(waybill.waybillNo) : null;
-  if (!waybill || !driver || !vehicle || !route) return;
+  const driverIsAvailable = driver && availableOwnDrivers().some((item) => item.id === driver.id);
+  if (!waybill || !driver || !vehicle || !route || !driverIsAvailable) return;
+  const dispatchTime = window.DispatchStore.nowText();
 
-  dispatches.unshift({
-    id: `PD-${Date.now()}`,
+  const assigned = {
+    dispatchMode: "manual",
     waybillNo: waybill.waybillNo,
     orderDate: waybill.orderDate,
     routeId: route.id,
@@ -2216,23 +2842,36 @@ dispatchForm.addEventListener("submit", (event) => {
     origin: route.origin,
     destination: route.destination,
     loadAddress: waybill.loadAddress,
-    dispatchTime: "2026-09-16 14:30",
+    dispatchTime,
     driverId: driver.id,
     driverName: driver.name,
     phone: driver.phone,
     vehicleId: vehicle.plateNo,
     status: "已派单",
     currentNode: "待提货",
-    boxes: `${waybill.boxNo1}${waybill.boxNo2 !== "-" ? ` / ${waybill.boxNo2}` : ""} / ${waybill.boxType}`,
+    boxes: formatWaybillBoxes(waybill),
     estimatedRevenue: route.estimatedRevenue,
     commission: calculateRouteCommission(route),
     note: dispatchForm.elements.note.value.trim(),
     pushed: true,
-    timeline: [{ node: "已派单", time: "2026-09-16 14:30", desc: "派单已推送至司机微信小程序", photos: [] }],
-  });
+    timeline: [{ node: "已派单", time: dispatchTime, desc: "派单已推送至司机微信小程序", photos: [] }],
+  };
+  const pending = dispatches.find((item) => item.waybillNo === waybill.waybillNo && item.status === "待派单");
+  if (pending) Object.assign(pending, assigned);
+  else dispatches.unshift({ id: `PD-${Date.now()}`, ...assigned });
+  driver.driverState = "运输中";
+  waybill.dispatchDate = dispatchTime.slice(0, 10);
+  waybill.plateNo = vehicle.plateNo;
+  waybill.driverId = driver.id;
+  waybill.driverName = driver.name;
+  saveWaybills();
   saveDispatches();
+  window.AutoDispatchManager?.refresh();
+  renderRows(filterRows(new FormData(queryForm)));
   dispatchCurrentPage = 1;
   closeDispatchForm();
+  dispatchQueryForm.reset();
+  dispatchQueryForm.elements.dispatchMode.value = "manual";
   renderDispatchPage(getFilteredDispatches());
 });
 
@@ -2312,9 +2951,23 @@ document.addEventListener("click", (event) => {
 });
 
 window.addEventListener("storage", (event) => {
+  if (event.key === DRIVER_CERTIFICATION_STORAGE_KEY) {
+    loadDriverCertifications();
+    syncDriverOperationalStates();
+    renderDriverPage(getFilteredDrivers());
+    if (driverCertificationDialog.open && reviewingDriverId) {
+      const driverId = reviewingDriverId;
+      closeCertificationReview();
+      openCertificationReview(driverId);
+    }
+    return;
+  }
   if (event.key !== window.DispatchStore.STORAGE_KEY) return;
   window.DispatchStore.replace(dispatches, window.DispatchStore.load(dispatchSeed));
+  syncDriverOperationalStates();
   renderDispatchPage(getFilteredDispatches());
+  renderDriverPage(getFilteredDrivers());
+  window.AutoDispatchManager?.refresh();
   if (dispatchDetailDialog.open) dispatchDetailDialog.close();
 });
 
@@ -2326,8 +2979,11 @@ window.addEventListener("message", (event) => {
   }
   if (message.type === "dispatch-update" && Array.isArray(message.dispatches)) {
     window.DispatchStore.replace(dispatches, message.dispatches);
+    syncDriverOperationalStates();
     saveDispatches();
     renderDispatchPage(getFilteredDispatches());
+    renderDriverPage(getFilteredDrivers());
+    window.AutoDispatchManager?.refresh();
     event.source?.postMessage({ type: "dispatch-sync-data", dispatches }, "*");
   }
 });
@@ -2335,5 +2991,8 @@ window.addEventListener("message", (event) => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState !== "visible") return;
   window.DispatchStore.replace(dispatches, window.DispatchStore.load(dispatchSeed));
+  syncDriverOperationalStates();
   renderDispatchPage(getFilteredDispatches());
+  renderDriverPage(getFilteredDrivers());
+  window.AutoDispatchManager?.refresh();
 });
