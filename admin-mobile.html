@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f1f2ff" />
+    <title>集卡物流管理端</title>
+    <link rel="stylesheet" href="admin-mobile.css" />
+  </head>
+  <body>
+    <div class="manager-shell">
+      <header class="manager-header" id="managerHeader">
+        <div><span class="manager-eyebrow" id="headerEyebrow">集卡物流管理端</span><h1 id="managerTitle">工作台</h1></div>
+        <button class="header-icon" id="headerMessageButton" type="button" aria-label="消息中心"><i data-lucide="bell"></i><span>3</span></button>
+      </header>
+
+      <main class="manager-main">
+        <section class="manager-view active" id="workbenchView" data-title="工作台">
+          <section class="manager-hero">
+            <div class="hero-top"><div><span>运营中心</span><h2>上午好，调度员</h2><p>今日运力状态已更新</p></div><span class="online-state"><i></i>运行正常</span></div>
+            <div class="hero-metrics">
+              <button data-open-module="dispatch" data-filter="待派单" type="button"><strong>2</strong><span>待派单</span></button>
+              <button data-open-module="dispatch" data-filter="运输中" type="button"><strong>1</strong><span>运输中</span></button>
+              <button data-open-module="vehicle" data-filter="空闲" type="button"><strong>0</strong><span>空闲车辆</span></button>
+              <button data-tab-target="messages" type="button"><strong>2</strong><span>预警待办</span></button>
+            </div>
+          </section>
+
+          <section class="workbench-block module-block">
+            <header class="block-heading"><div><h2>业务工作台</h2><p>后台核心功能快捷入口</p></div><button id="manageModulesButton" type="button">全部功能</button></header>
+            <div class="module-grid" id="moduleGrid">
+              <button data-open-module="waybill" type="button"><span class="module-icon blue"><i data-lucide="file-text"></i></span><strong>运单管理</strong><small>4 条记录</small></button>
+              <button data-open-module="route" type="button"><span class="module-icon purple"><i data-lucide="route"></i></span><strong>固定线路</strong><small>4 条线路</small></button>
+              <button data-open-module="dispatch" type="button"><span class="module-icon cyan"><i data-lucide="send"></i></span><strong>派单列表</strong><small>2 条待执行</small></button>
+              <button data-open-module="auto" type="button"><span class="module-icon orange"><i data-lucide="wand-sparkles"></i></span><strong>自动派单</strong><small>自动执行中</small></button>
+              <button data-open-module="vehicle" type="button"><span class="module-icon green"><i data-lucide="truck"></i></span><strong>车辆档案</strong><small>2 台自营</small></button>
+              <button data-open-module="driver" type="button"><span class="module-icon indigo"><i data-lucide="badge-user"></i></span><strong>司机档案</strong><small>5 名司机</small></button>
+              <button data-open-module="customer" type="button"><span class="module-icon rose"><i data-lucide="building-2"></i></span><strong>客户管理</strong><small>6 家客户</small></button>
+              <button data-open-module="reminder" type="button"><span class="module-icon yellow"><i data-lucide="shield-alert"></i></span><strong>到期提醒</strong><small>2 项待处理</small></button>
+            </div>
+          </section>
+
+          <section class="workbench-block quick-block">
+            <header class="block-heading"><div><h2>快捷操作</h2><p>常用业务快速办理</p></div></header>
+            <div class="quick-actions">
+              <button data-quick-action="waybill" type="button"><span><i data-lucide="file-plus-2"></i></span><strong>新增运单</strong><i data-lucide="chevron-right"></i></button>
+              <button data-quick-action="dispatch" type="button"><span><i data-lucide="send"></i></span><strong>新增派单</strong><i data-lucide="chevron-right"></i></button>
+              <button data-open-module="auto" type="button"><span><i data-lucide="refresh-cw"></i></span><strong>执行自动派单</strong><i data-lucide="chevron-right"></i></button>
+            </div>
+          </section>
+
+          <section class="workbench-block focus-block">
+            <header class="block-heading"><div><h2>今日调度</h2><p>需要优先处理的业务</p></div><button data-open-module="dispatch" type="button">查看全部</button></header>
+            <div class="focus-list" id="focusList"></div>
+          </section>
+
+          <section class="workbench-block route-overview">
+            <header class="block-heading"><div><h2>线路负荷</h2><p>固定线路今日饱和度</p></div><button data-open-module="route" type="button">线路管理</button></header>
+            <div class="mobile-route-load" id="mobileRouteLoad"></div>
+          </section>
+        </section>
+
+        <section class="manager-view messages-view" id="messagesView" data-title="消息">
+          <div class="segment-tabs" id="messageTabs"><button class="active" data-message-filter="all" type="button">全部</button><button data-message-filter="task" type="button">任务</button><button data-message-filter="warning" type="button">预警</button></div>
+          <div class="message-summary"><span><i data-lucide="bell-ring"></i></span><div><strong>3 条未读消息</strong><small>任务和预警状态实时同步</small></div><button id="readAllButton" type="button">全部已读</button></div>
+          <div class="message-list" id="messageList"></div>
+        </section>
+
+        <section class="manager-view profile-view" id="profileView" data-title="我的">
+          <section class="manager-profile"><div class="manager-avatar">调</div><div><h2>张调度</h2><p>运营中心 · 调度管理员</p><span>账号 ZD-1008</span></div><button type="button" data-profile-action="profile">编辑</button></section>
+          <section class="profile-stat"><div><strong>18</strong><span>今日操作</span></div><div><strong>96%</strong><span>派单及时率</span></div><div><strong>3</strong><span>待办事项</span></div></section>
+          <section class="profile-menu"><h2>管理设置</h2><button data-profile-action="role" type="button"><span class="profile-menu-icon blue"><i data-lucide="shield-check"></i></span><strong>权限与角色</strong><i data-lucide="chevron-right"></i></button><button data-profile-action="notification" type="button"><span class="profile-menu-icon orange"><i data-lucide="bell-cog"></i></span><strong>消息设置</strong><i data-lucide="chevron-right"></i></button><button data-profile-action="security" type="button"><span class="profile-menu-icon purple"><i data-lucide="lock-keyhole"></i></span><strong>账号安全</strong><i data-lucide="chevron-right"></i></button></section>
+          <section class="profile-menu"><h2>系统服务</h2><button data-profile-action="desktop" type="button"><span class="profile-menu-icon green"><i data-lucide="monitor"></i></span><strong>返回后台系统</strong><i data-lucide="external-link"></i></button><button data-profile-action="about" type="button"><span class="profile-menu-icon gray"><i data-lucide="circle-help"></i></span><strong>关于系统</strong><i data-lucide="chevron-right"></i></button></section>
+          <p class="manager-version">集卡物流管理端 · 1.0</p>
+        </section>
+
+        <section class="module-view" id="moduleView" aria-hidden="true">
+          <header class="subpage-header"><button class="subpage-back" id="moduleBackButton" type="button" aria-label="返回工作台"><i data-lucide="chevron-left"></i></button><div><span id="moduleEyebrow">业务管理</span><strong id="moduleTitle">运单管理</strong></div><button class="subpage-action" id="modulePrimaryButton" type="button"><i data-lucide="plus"></i></button></header>
+          <div class="module-scroll">
+            <label class="mobile-search"><i data-lucide="search"></i><input id="moduleSearch" type="search" placeholder="搜索关键字" /><button id="clearModuleSearch" type="button" aria-label="清空"><i data-lucide="x"></i></button></label>
+            <div class="module-filter-row" id="moduleFilters"></div>
+            <div class="module-summary" id="moduleSummary"></div>
+            <div class="module-list" id="moduleList"></div>
+          </div>
+        </section>
+
+        <section class="detail-view" id="managerDetailView" aria-hidden="true">
+          <header class="subpage-header"><button class="subpage-back" id="detailBackButton" type="button" aria-label="返回列表"><i data-lucide="chevron-left"></i></button><div><span>业务详情</span><strong id="detailTitle">详情</strong></div><button class="subpage-action" id="detailActionButton" type="button"><i data-lucide="ellipsis"></i></button></header>
+          <div class="detail-scroll" id="managerDetailContent"></div>
+        </section>
+      </main>
+
+      <nav class="manager-bottom-nav" id="managerBottomNav" aria-label="主导航">
+        <button class="active" data-view="workbench" type="button"><span><i data-lucide="layout-dashboard"></i></span><strong>工作台</strong></button>
+        <button data-view="messages" type="button"><span><i data-lucide="message-square-text"></i><em>3</em></span><strong>消息</strong></button>
+        <button data-view="profile" type="button"><span><i data-lucide="user-round"></i></span><strong>我的</strong></button>
+      </nav>
+      <div class="manager-toast" id="managerToast" role="status"></div>
+    </div>
+
+    <script src="vendor/lucide.min.js"></script>
+    <script src="admin-mobile.js"></script>
+  </body>
+</html>

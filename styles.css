@@ -214,6 +214,17 @@ h1 {
   background: #e2ebff;
 }
 
+.mobile-entry.admin-mobile-entry {
+  border-color: #d8e9e4;
+  background: #edf8f5;
+  color: #217a67;
+}
+
+.mobile-entry.admin-mobile-entry:hover {
+  border-color: #acd7cc;
+  background: #e2f3ee;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;
