@@ -12,7 +12,7 @@ for (const field of ["boxNo1", "sealNo1", "boxNo2", "sealNo2", "boxQuantity", "p
 assert.match(formHtml, /id="waybillContainerCount">1/);
 assert.match(formHtml, /id="addContainerRowBtn"/);
 assert.match(formHtml, /id="waybillContainerBody"/);
-assert.match(formHtml, /<th>箱号<\/th><th>封号<\/th><th>箱型<\/th><th>提箱点<\/th><th>还箱点<\/th><th>操作<\/th>/);
+assert.match(formHtml, /<th class="required-column">箱号<\/th><th class="required-column">封号<\/th><th>箱型<\/th><th class="required-column">提箱点<\/th><th class="required-column">还箱点<\/th><th>操作<\/th>/);
 assert.equal((formHtml.match(/name="remark"/g) || []).length, 1);
 assert.doesNotMatch(formHtml, /name="remark1"/);
 
@@ -37,6 +37,9 @@ assert.equal(converted[1].pickupPoint, "B");
 
 assert.match(source, /waybillContainerBody\.innerHTML = "";\s*receivableFeeBody\.innerHTML/);
 assert.match(source, /createContainerRow\(\);\s*createFeeRow\("receivable"\)/);
+for (const className of ["container-box-no", "container-seal-no", "container-pickup-point", "container-return-point", "fee-unit", "fee-kind", "fee-quantity", "fee-price"]) {
+  assert.match(source, new RegExp(`class="${className}"[^>]*required`), `${className} should be required`);
+}
 assert.match(source, /if \(!waybillContainerBody\.querySelector\("tr"\)\) createContainerRow\(\)/);
 assert.match(source, /boxQuantity: containers\.length/);
 assert.match(source, /containers,\s*boxNo1: containers\[0\]\?\.boxNo \|\| "-"/);

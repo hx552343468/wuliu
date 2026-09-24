@@ -7,10 +7,13 @@ const customerMarkup = html.slice(html.indexOf('id="customerPage"'), html.indexO
 assert.match(customerMarkup, /id="customerFormView" hidden/);
 assert.doesNotMatch(customerMarkup, /id="customerFormDialog"/);
 assert.match(customerMarkup, /建档提示/);
-for (const name of ["customerNo", "customerName", "customerType", "creditCode", "customerStatus", "contactName", "mobile", "loadAddress", "unloadAddress", "settlementCycle"]) {
+for (const name of ["customerName", "customerType", "creditCode", "customerStatus", "contactName", "mobile", "loadAddress", "unloadAddress", "settlementCycle"]) {
   assert.match(customerMarkup, new RegExp(`name="${name}"[^>]*required|required[^>]*name="${name}"`), `${name} should be required`);
   assert.match(customerMarkup, new RegExp(`data-error-for="${name}"`), `${name} should have inline feedback`);
 }
+assert.match(customerMarkup, /name="customerNo" readonly/);
+assert.doesNotMatch(customerMarkup, /name="customerNo"[^>]*required/);
+for (const type of ["国际货运代理（货代）", "船公司 \/ 船代", "第三方物流 \/ 供应链公司", "跨境电商物流商"]) assert.ok(customerMarkup.includes(type), `缺少客户类型 ${type}`);
 
 function element() {
   return {
@@ -55,6 +58,8 @@ assert.equal(context.window.CustomerManager.getActiveCustomerByName("宁波远�
 assert.equal(context.window.CustomerManager.getActiveCustomerByName("上海港联贸易有限公司"), null);
 assert.equal(context.window.CustomerManager.getActiveCustomerByName("未知客户"), null);
 assert.match(find("#customerBody").innerHTML, /KH-1008/);
+assert.match(find("#customerBody").innerHTML, /customer-type-badge/);
+assert.match(find("#customerBody").innerHTML, /第三方物流 \/ 供应链公司/);
 assert.doesNotMatch(find("#customerBody").innerHTML, /KH-1120/);
 assert.match(find("#customerOptions").innerHTML, /宁波远海供应链有限公司/);
 assert.doesNotMatch(find("#customerOptions").innerHTML, /上海港联贸易有限公司/);
@@ -79,16 +84,17 @@ assert.equal(find("#customerFormView").hidden, true);
 assert.equal(find("#customerListView").hidden, false);
 
 find("#addCustomerBtn").listeners.click();
+assert.equal(form.elements.customerNo.value, "KH-1121");
 form.listeners.submit({ preventDefault() {} });
 assert.equal(find('[data-error-for="customerName"]').textContent, "请输入客户全称");
-assert.equal(form.elements.customerNo.focused, true);
+assert.equal(form.elements.customerName.focused, true);
 form.elements.customerNo.value = "KH-1008";
 form.elements.customerName.value = "重复客户";
 form.listeners.submit({ preventDefault() {} });
 assert.equal(find('[data-error-for="customerNo"]').textContent, "客户编号已存在，请更换后重试");
-form.elements.customerNo.value = "KH-2001";
+form.elements.customerNo.value = "KH-1121";
 form.elements.customerName.value = "新增客户有限公司";
-form.elements.customerType.value = "直客";
+form.elements.customerType.value = "第三方物流 / 供应链公司";
 form.elements.creditCode.value = "91330206MA28T2001K";
 form.elements.customerStatus.value = "启用";
 form.elements.contactName.value = "张经理";
@@ -97,7 +103,7 @@ form.elements.loadAddress.value = "宁波港区";
 form.elements.unloadAddress.value = "宁波物流园";
 form.elements.settlementCycle.value = "月结30天";
 form.listeners.submit({ preventDefault() {} });
-assert.match(find("#customerBody").innerHTML, /KH-2001/);
+assert.match(find("#customerBody").innerHTML, /KH-1121/);
 assert.match(find("#customerOptions").innerHTML, /新增客户有限公司/);
 
 find("#customerBody").listeners.click({ target: { closest: (selector) => selector === "[data-customer-delete]" ? { dataset: { customerDelete: "KH-1008" } } : null } });
@@ -106,7 +112,7 @@ find("#confirmDeleteCustomerBtn").listeners.click();
 assert.match(storage.get("container-logistics-customers-v1"), /宁波远海供应链有限公司/);
 find("#cancelDeleteCustomerBtn").listeners.click();
 
-find("#customerBody").listeners.click({ target: { closest: (selector) => selector === "[data-customer-delete]" ? { dataset: { customerDelete: "KH-2001" } } : null } });
+find("#customerBody").listeners.click({ target: { closest: (selector) => selector === "[data-customer-delete]" ? { dataset: { customerDelete: "KH-1121" } } : null } });
 assert.equal(find("#confirmDeleteCustomerBtn").disabled, false);
 find("#confirmDeleteCustomerBtn").listeners.click();
 assert.doesNotMatch(find("#customerOptions").innerHTML, /新增客户有限公司/);

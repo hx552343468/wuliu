@@ -1,4 +1,6 @@
 document.querySelectorAll(".admin-form-dialog").forEach((dialog) => {
+  const header = dialog.querySelector(".vehicle-dialog-header");
+  if (header && dialog.dataset.breadcrumb) header.dataset.breadcrumb = dialog.dataset.breadcrumb;
   const nav = dialog.querySelector(".admin-section-nav");
   const scroll = dialog.querySelector(".admin-form-scroll");
   if (!nav || !scroll) return;
@@ -44,3 +46,17 @@ document.querySelectorAll(".admin-form-dialog").forEach((dialog) => {
     if (index !== -1) activate(index);
   }, true);
 });
+
+const customerFormView = typeof document.querySelector === "function" ? document.querySelector("#customerFormView") : null;
+const customerSectionNav = customerFormView?.querySelector(".customer-section-nav");
+const customerForm = customerFormView?.querySelector("#customerForm");
+if (customerSectionNav && customerForm) {
+  const buttons = [...customerSectionNav.querySelectorAll("button")];
+  const sections = [...customerForm.querySelectorAll(":scope > .customer-entry-section")];
+  const activate = (index) => buttons.forEach((button, position) => button.classList.toggle("is-active", position === index));
+  buttons.forEach((button, index) => button.addEventListener("click", () => {
+    sections[index]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    activate(index);
+  }));
+  activate(0);
+}

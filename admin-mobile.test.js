@@ -3,6 +3,7 @@ const fs = require("node:fs");
 
 const html = fs.readFileSync("admin-mobile.html", "utf8");
 const script = fs.readFileSync("admin-mobile.js", "utf8");
+const css = fs.readFileSync("admin-mobile.css", "utf8");
 const desktop = fs.readFileSync("index.html", "utf8");
 
 assert.match(desktop, /href="admin-mobile\.html"[^>]*>管理移动端<\/a>\s*<a class="mobile-entry" href="mobile\.html"/);
@@ -25,6 +26,8 @@ assert.match(html, /data-open-module="driver"[\s\S]*?data-lucide="user-round"[\s
 assert.doesNotMatch(html, /data-lucide="badge-user"/);
 assert.match(html, /id="managerEntryView"/);
 assert.match(html, /id="managerEntryForm"/);
+assert.match(html, /class="entry-scroll"[\s\S]*class="entry-actions"/);
+assert.match(css, /\.entry-actions\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0[^}]*flex:\s*0 0 auto/);
 
 for (const moduleName of ["waybill", "route", "dispatch", "auto", "vehicle", "driver", "customer"]) {
   assert.match(script, new RegExp(`openEntry\\(moduleName\\)[\\s\\S]*${moduleName}`), `缺少 ${moduleName} 新增入口`);
@@ -35,6 +38,11 @@ assert.match(script, /function dispatchEntryMarkup\(/);
 assert.match(script, /function autoEntryMarkup\(/);
 assert.match(script, /function createMobileRecord\(/);
 assert.match(script, /function saveEntry\(/);
+assert.match(script, /querySelectorAll\("\[required\]"\)/);
+assert.match(css, /\.mobile-field input:invalid\.touched/);
+for (const fieldName of ["routeState", "commissionType", "ownership", "vehicleState", "gender", "driverState", "customerStatus"]) {
+  assert.match(script, new RegExp(`name: "${fieldName}"[^\n]*required: true`), `${fieldName} 缺少必填标识`);
+}
 assert.match(script, /updateWaybillCustomer/);
 assert.match(script, /updateDispatchSummary/);
 assert.match(script, /container-logistics-manager-mobile-records-v1/);

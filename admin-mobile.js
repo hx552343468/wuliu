@@ -64,10 +64,10 @@ const moduleCatalog = {
     title: "客户管理", eyebrow: "基础资料", icon: "building-2", primary: "新增客户",
     filters: ["全部", "启用", "停用"],
     items: [
-      { id: "KH-1008", title: "宁波远海供应链有限公司", subtitle: "简称：宁波远海", status: "启用", statusClass: "success", fields: [["客户类型", "直营"], ["联系人", "李经理"], ["手机", "13800001008"], ["结算周期", "月结30天"]], note: "默认装货地址：宁波北仑港区二期" },
-      { id: "KH-1022", title: "上海嘉航国际物流有限公司", subtitle: "简称：上海嘉航", status: "启用", statusClass: "success", fields: [["客户类型", "货代"], ["联系人", "陈主管"], ["手机", "13900001022"], ["结算周期", "月结15天"]], note: "默认装货地址：上海洋山港" },
-      { id: "KH-1035", title: "杭州联贸进出口有限公司", subtitle: "简称：杭州联贸", status: "启用", statusClass: "success", fields: [["客户类型", "贸易企业"], ["联系人", "周女士"], ["手机", "13600001035"], ["结算周期", "月结30天"]], note: "默认装货地址：杭州萧山仓" },
-      { id: "KH-1120", title: "上海港联贸易有限公司", subtitle: "简称：上海港联", status: "停用", statusClass: "muted", fields: [["客户类型", "贸易企业"], ["联系人", "何经理"], ["手机", "13100001120"], ["结算周期", "月结60天"]], note: "默认装货地址：上海外高桥" },
+      { id: "KH-1008", title: "宁波远海供应链有限公司", subtitle: "简称：宁波远海", status: "启用", statusClass: "success", fields: [["客户类型", "第三方物流 / 供应链公司"], ["联系人", "李经理"], ["手机", "13800001008"], ["结算周期", "月结30天"]], note: "默认装货地址：宁波北仑港区二期" },
+      { id: "KH-1022", title: "上海嘉航国际物流有限公司", subtitle: "简称：上海嘉航", status: "启用", statusClass: "success", fields: [["客户类型", "国际货运代理（货代）"], ["联系人", "陈主管"], ["手机", "13900001022"], ["结算周期", "月结15天"]], note: "默认装货地址：上海洋山港" },
+      { id: "KH-1035", title: "杭州联贸进出口有限公司", subtitle: "简称：杭州联贸", status: "启用", statusClass: "success", fields: [["客户类型", "跨境电商物流商"], ["联系人", "周女士"], ["手机", "13600001035"], ["结算周期", "月结30天"]], note: "默认装货地址：杭州萧山仓" },
+      { id: "KH-1120", title: "上海港联贸易有限公司", subtitle: "简称：上海港联", status: "停用", statusClass: "muted", fields: [["客户类型", "跨境电商物流商"], ["联系人", "何经理"], ["手机", "13100001120"], ["结算周期", "月结60天"]], note: "默认装货地址：上海外高桥" },
     ],
   },
   reminder: {
@@ -97,13 +97,13 @@ const mobileFormDefinitions = {
         { name: "origin", label: "起运地", required: true, placeholder: "请输入起运地" },
         { name: "destination", label: "目的地", required: true, placeholder: "请输入目的地" },
         { name: "viaPoints", label: "途经点", full: true, placeholder: "多个地点用顿号分隔" },
-        { name: "routeState", label: "线路状态", type: "select", options: ["启用", "停用"] },
+        { name: "routeState", label: "线路状态", type: "select", required: true, options: ["启用", "停用"] },
         { name: "remark", label: "备注", full: true, type: "textarea", placeholder: "请输入线路备注" },
       ] },
       { title: "收入与提成", hint: "配置单次运输核算基准", fields: [
         { name: "estimatedRevenue", label: "单次预估收入（元）", type: "number", min: "0", step: "0.01", required: true },
         { name: "baseFreight", label: "线路基础运价（元）", type: "number", min: "0", step: "0.01", required: true },
-        { name: "commissionType", label: "提成方式", type: "select", options: [["fixed", "固定金额提成"], ["rate", "按收入比例提成"]] },
+        { name: "commissionType", label: "提成方式", type: "select", required: true, options: [["fixed", "固定金额提成"], ["rate", "按收入比例提成"]] },
         { name: "commissionValue", label: "固定提成金额（元）", type: "number", min: "0", step: "0.01", required: true },
         { name: "commissionRemark", label: "提成规则说明", full: true, placeholder: "例如：含往返空驶补贴" },
       ] },
@@ -122,8 +122,8 @@ const mobileFormDefinitions = {
         { name: "vin", label: "车架号", required: true }, { name: "engineNo", label: "发动机号", required: true },
         { name: "driver", label: "驾驶员", required: true }, { name: "fleet", label: "所属车队" },
         { name: "fleetName", label: "车队名称" },
-        { name: "ownership", label: "车辆所属", type: "select", options: ["自有", "外协"] },
-        { name: "vehicleState", label: "车辆状态", type: "select", options: ["在用", "停用", "维修中"] },
+        { name: "ownership", label: "车辆所属", type: "select", required: true, options: ["自有", "外协"] },
+        { name: "vehicleState", label: "车辆状态", type: "select", required: true, options: ["在用", "停用", "维修中"] },
       ] },
       { title: "车辆参数", hint: "载重、油耗与技术等级", fields: [
         { name: "curbWeight", label: "整备质量（吨）", type: "number", min: "0", step: "0.01" },
@@ -152,14 +152,14 @@ const mobileFormDefinitions = {
     intro: "建立自有司机基础资料、驾驶证、从业资格证和结算信息。",
     sections: [
       { title: "基础信息", hint: "司机身份与车队归属", fields: [
-        { name: "name", label: "姓名", required: true }, { name: "gender", label: "性别", type: "select", options: ["男", "女"] },
+        { name: "name", label: "姓名", required: true }, { name: "gender", label: "性别", type: "select", required: true, options: ["男", "女"] },
         { name: "idCard", label: "身份证号码", required: true, full: true, inputmode: "text" },
         { name: "phone", label: "手机号", type: "tel", required: true, pattern: "1[0-9]{10}", inputmode: "numeric" },
         { name: "address", label: "住址", required: true, full: true },
         { name: "emergencyContact", label: "紧急联系人", required: true },
         { name: "emergencyPhone", label: "紧急联系电话", type: "tel", required: true, pattern: "1[0-9]{10}", inputmode: "numeric" },
         { name: "entryDate", label: "入职日期", type: "date", required: true },
-        { name: "driverState", label: "司机状态", type: "select", options: ["空闲", "运输中", "停用"] },
+        { name: "driverState", label: "司机状态", type: "select", required: true, options: ["空闲", "运输中", "停用"] },
         { name: "fleet", label: "所属车队", required: true },
       ] },
       { title: "驾驶证", hint: "驾驶证信息与电子附件", fields: [
@@ -183,12 +183,12 @@ const mobileFormDefinitions = {
     intro: "完善客户资料后，新建运单可直接选择并自动带出常用地址。",
     sections: [
       { title: "基础信息", hint: "客户主体和可用状态", fields: [
-        { name: "customerNo", label: "客户编号", required: true, placeholder: "例如 KH-1201", hint: "客户唯一编号" },
+        { name: "customerNo", label: "客户编号", readonly: true, hint: "系统自动生成，无需填写" },
         { name: "customerName", label: "客户全称", required: true, full: true, placeholder: "营业执照上的企业全称" },
         { name: "shortName", label: "简称" },
-        { name: "customerType", label: "客户类型", type: "select", required: true, options: [["", "请选择"], "直客", "货代", "贸易企业", "其他"] },
+        { name: "customerType", label: "客户类型", type: "select", required: true, options: [["", "请选择"], "国际货运代理（货代）", "船公司 / 船代", "第三方物流 / 供应链公司", "跨境电商物流商"] },
         { name: "creditCode", label: "统一社会信用代码", required: true, full: true, pattern: "[0-9A-Z]{18}", maxlength: "18", hint: "18 位数字或大写字母" },
-        { name: "customerStatus", label: "客户状态", type: "select", options: ["启用", "停用"] },
+        { name: "customerStatus", label: "客户状态", type: "select", required: true, options: ["启用", "停用"] },
       ] },
       { title: "联系信息", hint: "日常运输协调联系人", fields: [
         { name: "contactName", label: "主要联系人", required: true },
@@ -516,7 +516,7 @@ function setupEntryBehavior(moduleName) {
   if (moduleName === "dispatch") updateDispatchSummary();
   if (moduleName === "waybill") { updateWaybillCustomer(); loadWaybillRouteDefaults(); }
   if (moduleName === "auto") updateAutoMode();
-  form.querySelectorAll("select[required]").forEach((select) => select.addEventListener("invalid", () => select.classList.add("touched")));
+  form.querySelectorAll("[required]").forEach((control) => control.addEventListener("invalid", () => control.classList.add("touched")));
 }
 
 function updateAutoMode() {
@@ -525,6 +525,14 @@ function updateAutoMode() {
   const disabled = form.elements.triggerMode.value === "realtime";
   form.elements.intervalMinutes.disabled = disabled;
   form.elements.intervalMinutes.closest(".mobile-field").style.opacity = disabled ? ".5" : "1";
+}
+
+function generateMobileCustomerNo() {
+  const maxNumber = moduleCatalog.customer.items.reduce((max, item) => {
+    const match = /^KH-(\d+)$/i.exec(item.id);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 1000);
+  return `KH-${String(maxNumber + 1).padStart(4, "0")}`;
 }
 
 function openEntry(moduleName) {
@@ -539,6 +547,9 @@ function openEntry(moduleName) {
   $("#entrySaveButton").textContent = moduleName === "dispatch" ? "派单并推送" : moduleName === "auto" ? "保存设置" : meta.primary.replace("新增", "保存");
   $("#managerEntryContent").innerHTML = moduleName === "waybill" ? waybillEntryMarkup() : moduleName === "dispatch" ? dispatchEntryMarkup() : moduleName === "auto" ? autoEntryMarkup() : genericEntryMarkup(moduleName);
   $("#managerEntryForm").reset();
+  if (moduleName === "customer") {
+    $("#managerEntryForm").elements.customerNo.value = generateMobileCustomerNo();
+  }
   if (moduleName === "waybill") {
     $("#managerEntryForm").elements.waybillNo.value = $("#mobileGeneratedWaybillNo").textContent;
     $("#managerEntryForm").elements.orderDate.value = localDate();

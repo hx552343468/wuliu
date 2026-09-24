@@ -237,7 +237,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .mobile-field textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(90,79,242,.09); }
 .mobile-field input[readonly] { color: #777a90; background: #f7f7fb; }
 .mobile-field small { display: block; margin-top: 5px; color: #a0a2b1; font-size: 8px; line-height: 1.45; }
-.mobile-field input:invalid:not(:placeholder-shown),
+.mobile-field input:invalid.touched,
 .mobile-field select:invalid.touched { border-color: #eb9baa; }
 .mobile-switches { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3,1fr); gap: 7px; }
 .mobile-switches label { display: flex; min-height: 38px; align-items: center; gap: 6px; border: 1px solid #e7e7ef; border-radius: 10px; padding: 0 8px; color: #606379; background: #fafafd; font-size: 9px; }
@@ -284,7 +284,7 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .toggle-field { display: flex; min-height: 48px; align-items: center; justify-content: space-between; grid-column: 1 / -1; border-bottom: 1px solid #f0f0f5; }
 .toggle-field span { color: #53566d; font-size: 10px; font-weight: 700; }
 .toggle-field input { width: 38px; height: 20px; accent-color: var(--primary); }
-.entry-actions { display: grid; min-height: calc(74px + var(--safe-bottom)); flex: 0 0 auto; grid-template-columns: 1fr 1.5fr; gap: 10px; padding: 11px 16px calc(11px + var(--safe-bottom)); border-top: 1px solid #e8e8f0; background: rgba(255,255,255,.95); box-shadow: 0 -10px 28px rgba(50,48,94,.06); }
+.entry-actions { position: sticky; z-index: 8; bottom: 0; display: grid; min-height: calc(74px + var(--safe-bottom)); flex: 0 0 auto; grid-template-columns: 1fr 1.5fr; gap: 10px; padding: 11px 16px calc(11px + var(--safe-bottom)); border-top: 1px solid #e8e8f0; background: rgba(255,255,255,.96); box-shadow: 0 -10px 28px rgba(50,48,94,.08); backdrop-filter: blur(12px); }
 .entry-actions button { height: 46px; border-radius: 12px; font-size: 12px; font-weight: 800; }
 .entry-cancel { border: 1px solid #e1e2ea; color: #6c6f83; background: #fff; }
 .entry-save { border: 0; color: #fff; background: var(--primary); box-shadow: 0 8px 18px rgba(90,79,242,.2); }
