@@ -78,6 +78,18 @@ const moduleCatalog = {
       { id: "浙B·K7812", title: "保险即将到期", subtitle: "宁波港区集卡车队", status: "保险即将到期", statusClass: "warning", fields: [["保险到期", "2026-10-05"], ["剩余天数", "19 天"], ["司机", "王海"], ["车辆状态", "在用"]], note: "联系保险公司续保并上传新保单" },
     ],
   },
+  plan: {
+    title: "计划管理", eyebrow: "计划管理与派发", icon: "clipboard-list", primary: "新建计划任务",
+    filters: ["全部", "待派发", "进行中", "已完成", "异常"], items: [],
+  },
+  capacity: {
+    title: "运力管理", eyebrow: "计划管理与派发", icon: "gauge", primary: "查看运力",
+    filters: ["全部", "闲置", "运输中", "维修中", "停用"], items: [],
+  },
+  trailer: {
+    title: "挂车档案", eyebrow: "车辆管理", icon: "container", primary: "新增挂车",
+    filters: ["全部", "在用", "停用", "维修中"], items: [],
+  },
 };
 
 const messages = [
@@ -208,6 +220,33 @@ const mobileFormDefinitions = {
       ] },
     ],
   },
+  trailer: {
+    intro: "维护挂车身份、营运证、审验和保险资料，供车辆和派单关联使用。",
+    sections: [{ title: "挂车档案", hint: "身份、归属与证照", fields: [
+      { name: "plateNo", label: "挂车车牌", required: true }, { name: "trailerType", label: "挂车类型", required: true },
+      { name: "vin", label: "车架号", required: true }, { name: "fleet", label: "所属车队" },
+      { name: "ownership", label: "车辆所属", type: "select", required: true, options: ["自有", "外协"] },
+      { name: "trailerState", label: "挂车状态", type: "select", required: true, options: ["在用", "停用", "维修中"] },
+      { name: "registrationCertNo", label: "车辆登记证号" }, { name: "permitNo", label: "营运证号", required: true },
+      { name: "operatingPermitExpiry", label: "营运证有效期", type: "date" }, { name: "inspectionDue", label: "审验到期", type: "date" },
+      { name: "insuranceNo", label: "保险单号" }, { name: "insuranceDue", label: "保险到期", type: "date" },
+      { name: "attachments", label: "附件" }, { name: "remark", label: "备注", type: "textarea", full: true },
+    ] }],
+  },
+  plan: {
+    intro: "创建计划任务后生成子运单，进入待派发池，可选择手动或自动派单。",
+    sections: [{ title: "计划任务", hint: "执行时间、客户项目和任务清单", fields: [
+      { name: "executionTime", label: "执行时间", type: "datetime-local", required: true },
+      { name: "customerName", label: "客户名称", required: true }, { name: "projectName", label: "项目名称", required: true },
+      { name: "routeId", label: "固定线路", type: "select", required: true, options: [] },
+      { name: "boxType", label: "柜型", type: "select", required: true, options: ["40HQ", "40GP", "20GP", "45HQ"] },
+      { name: "quantity", label: "任务数量", type: "number", min: "1", max: "100", required: true, value: "1" },
+      { name: "taskType", label: "任务类型", type: "select", required: true, options: ["提空装货", "提重送货", "排空箱（A→B）", "排重箱（A→B）"] },
+      { name: "dispatchMode", label: "派单方式", type: "select", required: true, options: [["manual", "手动派单"], ["auto", "自动派单"]] },
+      { name: "dispatchAdvanceMinutes", label: "提前量（分钟）", type: "number", min: "0", value: "30" },
+      { name: "remark", label: "备注", type: "textarea", full: true },
+    ] }],
+  },
 };
 
 const state = { currentView: "workbench", currentModule: "", moduleFilter: "全部", messageFilter: "all", search: "", detailItem: null, entryModule: "" };
@@ -281,6 +320,43 @@ function nextBusinessId(prefix, count) {
   return `${prefix}${localDate().replaceAll("-", "")}${String(count + 1).padStart(3, "0")}`;
 }
 
+function sharedStatusClass(status) {
+  return ["已完成", "启用", "在用", "空闲", "已确认"].includes(status) ? "success" : ["已过期", "停用", "作废"].includes(status) ? "danger" : ["待派单", "待派发", "维修中", "待处理", "草稿"].includes(status) ? "warning" : "";
+}
+
+function loadSharedCatalog() {
+  const snapshot = window.AdminDataBridge?.read?.();
+  if (!snapshot) return;
+  const routes = Array.isArray(snapshot.fixedRoutes) ? snapshot.fixedRoutes : [];
+  const waybills = Array.isArray(snapshot.waybills) ? snapshot.waybills : [];
+  const dispatches = Array.isArray(snapshot.dispatches) ? snapshot.dispatches : [];
+  const vehicles = Array.isArray(snapshot.vehicles) ? snapshot.vehicles : [];
+  const trailers = Array.isArray(snapshot.trailers) ? snapshot.trailers : [];
+  const drivers = Array.isArray(snapshot.drivers) ? snapshot.drivers : [];
+  const customers = Array.isArray(snapshot.customers) && snapshot.customers.length ? snapshot.customers : (window.AdminDataBridge.readCustomers?.() || []);
+  if (routes.length) moduleCatalog.route.items = routes.map((route) => ({
+    id: route.id, title: route.routeName, subtitle: `${route.origin || ""} → ${route.destination || ""}`,
+    status: route.routeState || "启用", statusClass: sharedStatusClass(route.routeState),
+    fields: [["客户", route.customerName || "-"], ["项目", route.projectName || "-"], ["预估收入", `¥${route.estimatedRevenue || 0}`], ["提成", route.commissionType === "rate" ? `${route.commissionValue || 0}%` : `¥${route.commissionValue || 0}`], ["常用车辆", route.defaultVehicle || "未指定"], ["常用司机", route.defaultDriver || "未指定"]], note: route.remark || "", raw: route,
+  }));
+  if (waybills.length) moduleCatalog.waybill.items = waybills.map((waybill) => {
+    const route = routes.find((item) => item.id === waybill.routeId);
+    const containers = Array.isArray(waybill.containers) ? waybill.containers : [];
+    const boxLabel = containers.map((item) => item.containerType || item.boxType).filter(Boolean).join("、") || waybill.boxType || "待装箱";
+    return { id: waybill.waybillNo, title: waybill.customerName || "未指定客户", subtitle: route?.routeName || waybill.routeName || "未指定线路", status: waybill.status === "草稿" ? "草拟" : waybill.status || "草拟", statusClass: sharedStatusClass(waybill.status), fields: [["接单日期", waybill.orderDate || "-"], ["计划任务", waybill.planTaskNo || waybill.planTaskId || "-"], ["箱型", boxLabel], ["装卸地址", waybill.loadAddress || "-"], ["应收金额", `¥${waybill.receivable || 0}`], ["应付金额", `¥${waybill.payable || 0}`]], note: waybill.remark || "", raw: waybill };
+  });
+  if (dispatches.length) moduleCatalog.dispatch.items = dispatches.map((dispatch) => ({
+    id: dispatch.id, title: dispatch.routeName || "未指定线路", subtitle: dispatch.waybillNo || "-", status: dispatch.status || "待派单", statusClass: sharedStatusClass(dispatch.status), fields: [["司机", dispatch.driverName || "待分配"], ["车辆", dispatch.vehicleId || "待分配"], ["挂车", dispatch.trailerId || "未绑定"], ["当前节点", dispatch.currentNode || "待派单"], ["派单方式", dispatch.dispatchMode === "auto" ? "自动派单" : dispatch.dispatchMode === "manual" ? "手动派单" : "待分配"], ["派单时间", dispatch.dispatchTime || "-"]], note: dispatch.note || "", raw: dispatch }));
+  if (vehicles.length) moduleCatalog.vehicle.items = vehicles.map((vehicle) => ({ id: vehicle.plateNo, title: vehicle.vehicleType || "集装箱牵引车", subtitle: vehicle.fleetName || vehicle.fleet || "未设置车队", status: vehicle.vehicleState || "停用", statusClass: sharedStatusClass(vehicle.vehicleState), fields: [["司机", vehicle.driver || "未绑定"], ["挂车", vehicle.trailerId || "未绑定"], ["VIN", vehicle.vin || "-"], ["营运证号", vehicle.permitNo || "-"], ["审验到期", vehicle.inspectionDue || "-"], ["保险到期", vehicle.insuranceDue || "-"]], note: vehicle.remark || "", raw: vehicle }));
+  if (trailers.length) moduleCatalog.trailer.items = trailers.map((trailer) => ({ id: trailer.id, title: trailer.plateNo, subtitle: trailer.trailerType || "挂车", status: trailer.trailerState || "停用", statusClass: sharedStatusClass(trailer.trailerState), fields: [["车架号", trailer.vin || "-"], ["所属车队", trailer.fleet || "-"], ["营运证号", trailer.permitNo || "-"], ["审验到期", trailer.inspectionDue || "-"], ["保险到期", trailer.insuranceDue || "-"]], note: trailer.remark || "", raw: trailer }));
+  if (drivers.length) moduleCatalog.driver.items = drivers.map((driver) => ({ id: driver.id, title: driver.name, subtitle: `${driver.fleet || "未设置车队"} · ${driver.phone || "-"}`, status: driver.driverState || "停用", statusClass: sharedStatusClass(driver.driverState), fields: [["准驾车型", driver.licenseClass || "A2"], ["车辆", driver.vehiclePlate || driver.vehicle || "未绑定"], ["认证", driver.certificationStatus === "verified" ? "已认证" : "待认证"], ["驾驶证到期", driver.licenseExpiry || "-"], ["资格证到期", driver.qualificationExpiry || "-"]], note: driver.remark || "", raw: driver }));
+  if (customers.length) moduleCatalog.customer.items = customers.map((customer) => ({ id: customer.customerNo, title: customer.customerName, subtitle: `简称：${customer.shortName || "-"}`, status: customer.customerStatus || "启用", statusClass: sharedStatusClass(customer.customerStatus), fields: [["客户类型", customer.customerType || "-"], ["联系人", customer.contactName || "-"], ["手机", customer.mobile || "-"], ["结算周期", customer.settlementCycle || "-"], ["默认装货地址", customer.loadAddress || "-"]], note: customer.remark || "", raw: customer }));
+  const groups = new Map();
+  waybills.forEach((waybill) => { const id = waybill.planTaskId || `PT-LEGACY-${waybill.waybillNo}`; const group = groups.get(id) || { id, no: waybill.planTaskNo || id, first: waybill, rows: [] }; group.rows.push(waybill); groups.set(id, group); });
+  moduleCatalog.plan.items = [...groups.values()].map((group) => { const done = group.rows.filter((row) => row.status === "已完成").length; const active = group.rows.some((row) => ["已派单", "运输中"].includes(row.status)); const status = done === group.rows.length ? "已完成" : active ? "进行中" : "待派发"; return { id: group.id, title: group.no, subtitle: `${group.first.customerName || "-"} · ${group.first.projectName || "-"}`, status, statusClass: sharedStatusClass(status), fields: [["任务数量", `${group.rows.length} 条`], ["线路", routes.find((route) => route.id === group.first.routeId)?.routeName || "-"], ["任务类型", group.first.taskType || "-"], ["完成进度", `${done}/${group.rows.length}`]], note: "可查看计划下的运单与派单明细", raw: group }; });
+  moduleCatalog.capacity.items = [...vehicles.map((vehicle) => { const active = dispatches.find((dispatch) => dispatch.vehicleId === vehicle.plateNo && ["已派单", "运输中"].includes(dispatch.status)); const status = vehicle.vehicleState === "维修中" ? "维修中" : vehicle.vehicleState === "停用" ? "停用" : active?.status === "运输中" ? "运输中" : "闲置"; return { id: `vehicle-${vehicle.plateNo}`, title: vehicle.plateNo, subtitle: vehicle.vehicleType || "车辆", status, statusClass: sharedStatusClass(status), fields: [["司机", active?.driverName || vehicle.driver || "未绑定"], ["挂车", vehicle.trailerId || "未绑定"], ["当前任务", active?.waybillNo || "无"], ["车队", vehicle.fleet || vehicle.fleetName || "-"]], note: active?.routeName || "当前无执行任务", raw: vehicle }; }), ...drivers.map((driver) => ({ id: `driver-${driver.id}`, title: driver.name, subtitle: "司机", status: driver.driverState === "运输中" ? "运输中" : driver.driverState === "停用" ? "停用" : "闲置", statusClass: sharedStatusClass(driver.driverState), fields: [["司机编号", driver.id], ["车辆", driver.vehiclePlate || "未绑定"], ["车队", driver.fleet || "-"], ["证件到期", driver.licenseExpiry || "-"]], note: "司机运力状态", raw: driver }))];
+}
+
 function containerCardMarkup() {
   return `<div class="repeat-card" data-repeat-card="container"><div class="mobile-form-grid">
     ${fieldMarkup({ name: "containerNo", label: "箱号", required: true, placeholder: "请输入箱号" })}
@@ -319,7 +395,7 @@ function waybillEntryMarkup() {
         ${fieldMarkup({ name: "customerId", label: "客户名称", type: "select", required: true, options: customerOptions })}
         ${fieldMarkup({ name: "billNo", label: "提单号" })}${fieldMarkup({ name: "receiptDate", label: "回单日期", type: "date" })}
         ${fieldMarkup({ name: "loadAddress", label: "装卸地址", required: true, full: true, placeholder: "选择客户后自动带出" })}
-        <div class="mobile-switches"><label><input name="dispatchable" type="checkbox" checked />可调度</label><label><input name="needReceipt" type="checkbox" />需要回单</label><label><input name="receivedReceipt" type="checkbox" />收到回单</label></div>
+        <div class="mobile-switches"><label><input name="needReceipt" type="checkbox" />需要回单</label><label><input name="receivedReceipt" type="checkbox" />收到回单</label></div>
         ${fieldMarkup({ name: "remark", label: "备注", type: "textarea", full: true })}
       </div>
     </section>
@@ -368,9 +444,11 @@ function showToast(message) {
 
 function switchView(view) {
   state.currentView = view;
+  closeManagerDrawer();
   $(".manager-shell").classList.remove("subpage-open");
   $$(".manager-view").forEach((item) => item.classList.toggle("active", item.id === `${view}View`));
   $$("#managerBottomNav button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  $("#managerDrawerButton").hidden = view !== "workbench";
   $("#managerTitle").textContent = { workbench: "工作台", messages: "消息", profile: "我的" }[view];
   $("#headerEyebrow").textContent = view === "workbench" ? "集卡物流管理端" : view === "messages" ? "任务与预警通知" : "运营中心账号";
   if (view === "messages") renderMessages();
@@ -378,6 +456,23 @@ function switchView(view) {
   $("#managerDetailView").classList.remove("open");
   $("#managerEntryView").classList.remove("open");
   $("#managerEntryView").setAttribute("aria-hidden", "true");
+}
+
+function openManagerDrawer() {
+  renderManagerDrawer();
+  $("#managerDrawer").classList.add("open");
+  $("#managerDrawerOverlay").classList.add("open");
+  $("#managerDrawer").setAttribute("aria-hidden", "false");
+  $("#managerDrawerOverlay").setAttribute("aria-hidden", "false");
+}
+
+function closeManagerDrawer() {
+  const drawer = $("#managerDrawer");
+  if (!drawer) return;
+  drawer.classList.remove("open");
+  $("#managerDrawerOverlay").classList.remove("open");
+  drawer.setAttribute("aria-hidden", "true");
+  $("#managerDrawerOverlay").setAttribute("aria-hidden", "true");
 }
 
 function renderWorkbench() {
@@ -536,7 +631,7 @@ function generateMobileCustomerNo() {
 }
 
 function openEntry(moduleName) {
-  if (!["waybill", "route", "dispatch", "auto", "vehicle", "driver", "customer"].includes(moduleName)) {
+  if (!["waybill", "route", "dispatch", "auto", "vehicle", "driver", "customer", "trailer", "plan"].includes(moduleName)) {
     showToast("该模块无需新增建档");
     return;
   }
@@ -547,6 +642,9 @@ function openEntry(moduleName) {
   $("#entrySaveButton").textContent = moduleName === "dispatch" ? "派单并推送" : moduleName === "auto" ? "保存设置" : meta.primary.replace("新增", "保存");
   $("#managerEntryContent").innerHTML = moduleName === "waybill" ? waybillEntryMarkup() : moduleName === "dispatch" ? dispatchEntryMarkup() : moduleName === "auto" ? autoEntryMarkup() : genericEntryMarkup(moduleName);
   $("#managerEntryForm").reset();
+  if (moduleName === "plan" && $("#managerEntryForm").elements.routeId) {
+    $("#managerEntryForm").elements.routeId.innerHTML = `<option value="">请选择固定线路</option>${moduleCatalog.route.items.filter((item) => item.status === "启用").map((item) => `<option value="${h(item.id)}">${h(item.title)}</option>`).join("")}`;
+  }
   if (moduleName === "customer") {
     $("#managerEntryForm").elements.customerNo.value = generateMobileCustomerNo();
   }
@@ -649,18 +747,65 @@ function loadCreatedRecords() {
 
 function updateWorkbenchCounts() {
   const labels = {
-    waybill: `${moduleCatalog.waybill.items.length} 条记录`, route: `${moduleCatalog.route.items.length} 条线路`,
+    waybill: `${moduleCatalog.waybill.items.length} 条记录`, plan: `${moduleCatalog.plan.items.length} 个任务`, route: `${moduleCatalog.route.items.length} 条线路`,
     dispatch: `${moduleCatalog.dispatch.items.filter((item) => item.status === "待派单").length} 条待执行`,
-    vehicle: `${moduleCatalog.vehicle.items.length} 台车辆`, driver: `${moduleCatalog.driver.items.length} 名司机`,
+    capacity: `${moduleCatalog.capacity.items.length} 条运力`, vehicle: `${moduleCatalog.vehicle.items.length} 台车辆`, trailer: `${moduleCatalog.trailer.items.length} 台挂车`, driver: `${moduleCatalog.driver.items.length} 名司机`,
     customer: `${moduleCatalog.customer.items.length} 家客户`, reminder: `${moduleCatalog.reminder.items.length} 项待处理`,
   };
   Object.entries(labels).forEach(([moduleName, label]) => {
     const node = $(`#moduleGrid [data-open-module="${moduleName}"] small`);
     if (node) node.textContent = label;
   });
+  renderManagerDrawer();
+}
+
+function renderManagerDrawer() {
+  const shortcuts = [
+    ["waybill", "运单管理", "file-text", "blue"],
+    ["plan", "计划管理", "clipboard-list", "blue"],
+    ["route", "固定线路", "route", "purple"],
+    ["dispatch", "派单列表", "send", "cyan"],
+    ["capacity", "运力管理", "gauge", "cyan"],
+    ["auto", "自动派单", "wand-sparkles", "orange"],
+    ["vehicle", "车辆档案", "truck", "green"],
+    ["trailer", "挂车档案", "container", "green"],
+    ["driver", "司机档案", "user-round", "indigo"],
+    ["customer", "客户管理", "building-2", "rose"],
+    ["reminder", "到期提醒", "shield-alert", "yellow"],
+  ];
+  $("#managerDrawerLinks").innerHTML = shortcuts.map(([moduleName, label, icon, style]) => `
+    <button class="manager-drawer-link" data-open-module="${moduleName}" type="button">
+      <span class="manager-drawer-icon ${style}"><i data-lucide="${icon}"></i></span><span><strong>${label}</strong><small>${moduleCatalog[moduleName]?.items.length || 0} 项</small></span><i data-lucide="chevron-right"></i>
+    </button>`).join("");
+  const reminderItems = messages.filter((item) => item.unread).slice(0, 3);
+  $("#managerDrawerReminders").innerHTML = reminderItems.length ? reminderItems.map((item) => `
+    <button class="manager-drawer-reminder" data-drawer-message="${h(item.id)}" type="button">
+      <span class="manager-drawer-reminder-icon ${item.style}"><i data-lucide="${h(item.icon)}"></i></span><span><strong>${h(item.title)}</strong><small>${h(item.desc)}</small><time>${h(item.time)}</time></span><b>›</b>
+    </button>`).join("") : `<div class="manager-drawer-empty"><i data-lucide="check-check"></i><span>当前没有未读提醒</span></div>`;
+  refreshIcons();
 }
 
 function createMobileRecord(moduleName, values) {
+  if (moduleName === "plan") {
+    const route = moduleCatalog.route.items.find((item) => item.id === values.routeId);
+    const quantity = Math.max(1, Math.min(100, Number(values.quantity) || 1));
+    const planId = `PT-${Date.now()}`;
+    const planNo = `JH-${String(values.executionTime || localDate()).slice(0, 10).replaceAll("-", "")}-${String(moduleCatalog.plan.items.length + 1).padStart(3, "0")}`;
+    const generated = Array.from({ length: quantity }, (_, index) => {
+      const waybillNo = nextBusinessId("WB", moduleCatalog.waybill.items.length + index);
+      const raw = { waybillNo, planTaskId: planId, planTaskNo: planNo, orderDate: String(values.executionTime || localDate()).slice(0, 10), executionTime: values.executionTime, routeId: values.routeId, customerName: values.customerName, projectName: values.projectName, boxType: values.boxType, taskType: values.taskType, autoDispatch: values.dispatchMode === "auto", dispatchAdvanceMinutes: Number(values.dispatchAdvanceMinutes) || 0 };
+      const item = { id: waybillNo, title: values.customerName, subtitle: route?.title || "未指定线路", status: "草拟", statusClass: "warning", fields: [["接单日期", raw.orderDate], ["计划任务", planNo], ["箱型", values.boxType], ["任务类型", values.taskType], ["装卸地址", route?.raw?.loadingPoint || route?.raw?.origin || "-"], ["派单方式", values.dispatchMode === "auto" ? "自动派单" : "手动派单"]], note: values.remark || "移动端创建计划任务", raw };
+      moduleCatalog.waybill.items.unshift(item);
+      const dispatchItem = { id: `PD-${Date.now()}-${index}`, title: route?.title || "未指定线路", subtitle: waybillNo, status: "待派单", statusClass: "warning", fields: [["司机", "待分配"], ["车辆", "待分配"], ["当前节点", "待派单"], ["派单方式", values.dispatchMode === "auto" ? "自动派单" : "待分配"]], note: "计划任务已进入待派发池", raw };
+      moduleCatalog.dispatch.items.unshift(dispatchItem);
+      persistCreatedRecord("waybill", item);
+      persistCreatedRecord("dispatch", dispatchItem);
+      publishMobileRecord("waybill", item);
+      publishMobileRecord("dispatch", dispatchItem);
+      return item;
+    });
+    return { id: planId, title: planNo, subtitle: `${values.customerName} · ${values.projectName}`, status: "待派发", statusClass: "warning", fields: [["任务数量", `${generated.length} 条`], ["线路", route?.title || "-"], ["任务类型", values.taskType], ["派单方式", values.dispatchMode === "auto" ? "自动派单" : "手动派单"]], note: values.remark || "计划已生成子运单", raw: { ...values, planId, planNo, waybills: generated.map((item) => item.id) } };
+  }
   if (moduleName === "waybill") {
     const route = moduleCatalog.route.items.find((item) => item.id === values.routeId);
     const customer = moduleCatalog.customer.items.find((item) => item.id === values.customerId);
@@ -688,6 +833,7 @@ function createMobileRecord(moduleName, values) {
   if (moduleName === "vehicle") return { id: values.plateNo, title: values.vehicleType, subtitle: values.fleetName || values.fleet || "未设置车队", status: values.vehicleState, statusClass: values.vehicleState === "在用" ? "success" : values.vehicleState === "维修中" ? "warning" : "muted", fields: [["驾驶员", values.driver], ["车辆所属", values.ownership], ["车架号", values.vin], ["发动机号", values.engineNo], ["营运证号", values.permitNo], ["审验到期", values.inspectionDue], ["保险到期", values.insuranceDue], ...genericDetailFields(moduleName, values)], note: values.remark || "移动端新建车辆档案", raw: values };
   if (moduleName === "driver") return { id: `SJ-${String(moduleCatalog.driver.items.length + 1001)}`, title: values.name, subtitle: `${values.fleet} · ${values.phone}`, status: values.driverState, statusClass: values.driverState === "空闲" ? "success" : values.driverState === "停用" ? "muted" : "", fields: [["准驾车型", values.licenseClass], ["认证", "待认证"], ["驾驶证到期", values.licenseExpiry], ["资格证到期", values.qualificationExpiry], ...genericDetailFields(moduleName, values)], note: values.remark || "自有司机", raw: values };
   if (moduleName === "customer") return { id: values.customerNo, title: values.customerName, subtitle: `简称：${values.shortName || "-"}`, status: values.customerStatus, statusClass: values.customerStatus === "启用" ? "success" : "muted", fields: [["客户类型", values.customerType], ["联系人", values.contactName], ["手机", values.mobile], ["结算周期", values.settlementCycle], ...genericDetailFields(moduleName, values)], note: `默认装货地址：${values.loadAddress}`, raw: values };
+  if (moduleName === "trailer") return { id: `TR-${Date.now()}`, title: values.plateNo, subtitle: values.trailerType || "挂车", status: values.trailerState, statusClass: sharedStatusClass(values.trailerState), fields: [["车架号", values.vin], ["所属车队", values.fleet], ["营运证号", values.permitNo], ["审验到期", values.inspectionDue], ["保险到期", values.insuranceDue]], note: values.remark || "移动端新建挂车档案", raw: values };
   return null;
 }
 
@@ -698,6 +844,20 @@ function hasDuplicateRecord(moduleName, values) {
   return "";
 }
 
+function publishMobileRecord(moduleName, item) {
+  if (!window.AdminDataBridge || !item) return;
+  const snapshot = window.AdminDataBridge.read() || {};
+  const raw = { ...(item.raw || {}) };
+  if (moduleName === "waybill") { raw.waybillNo = raw.waybillNo || item.id; snapshot.waybills = [raw, ...(snapshot.waybills || []).filter((entry) => entry.waybillNo !== raw.waybillNo)]; }
+  if (moduleName === "route") { raw.id = raw.id || item.id; raw.routeName = raw.routeName || item.title; snapshot.fixedRoutes = [raw, ...(snapshot.fixedRoutes || []).filter((entry) => entry.id !== raw.id)]; }
+  if (moduleName === "dispatch") { raw.id = raw.id || item.id; raw.waybillNo = raw.waybillNo || item.subtitle; snapshot.dispatches = [raw, ...(snapshot.dispatches || []).filter((entry) => entry.id !== raw.id)]; }
+  if (moduleName === "vehicle") { raw.plateNo = raw.plateNo || item.id; snapshot.vehicles = [raw, ...(snapshot.vehicles || []).filter((entry) => entry.plateNo !== raw.plateNo)]; }
+  if (moduleName === "trailer") { raw.id = raw.id || item.id; snapshot.trailers = [raw, ...(snapshot.trailers || []).filter((entry) => entry.id !== raw.id)]; }
+  if (moduleName === "driver") { raw.id = raw.id || item.id; snapshot.drivers = [raw, ...(snapshot.drivers || []).filter((entry) => entry.id !== raw.id)]; }
+  if (moduleName === "customer") { raw.customerNo = raw.customerNo || item.id; snapshot.customers = [raw, ...(snapshot.customers || []).filter((entry) => entry.customerNo !== raw.customerNo)]; }
+  window.AdminDataBridge.write(snapshot);
+}
+
 function saveEntry(event) {
   event.preventDefault();
   const form = $("#managerEntryForm");
@@ -706,7 +866,6 @@ function saveEntry(event) {
   const values = Object.fromEntries([...formData.entries()].map(([key, value]) => [key, value instanceof File ? value.name : String(value).trim()]));
   values.needReceipt = form.elements.needReceipt?.checked || false;
   values.receivedReceipt = form.elements.receivedReceipt?.checked || false;
-  values.dispatchable = form.elements.dispatchable?.checked || false;
   if (state.entryModule === "auto") {
     const settings = { ...values, enabled: form.elements.enabled.checked, retry: form.elements.retry.checked };
     localStorage.setItem(AUTO_SETTINGS_KEY, JSON.stringify(settings));
@@ -720,6 +879,7 @@ function saveEntry(event) {
   if (!item) return;
   moduleCatalog[state.entryModule].items.unshift(item);
   persistCreatedRecord(state.entryModule, item);
+  publishMobileRecord(state.entryModule, item);
   const moduleName = state.entryModule;
   closeEntry();
   state.search = "";
@@ -756,7 +916,26 @@ document.addEventListener("click", (event) => {
   const tabTarget = event.target.closest("[data-tab-target]");
   const quickAction = event.target.closest("[data-quick-action]");
   const profileAction = event.target.closest("[data-profile-action]");
+  const drawerMessage = event.target.closest("[data-drawer-message]");
+  const drawerAction = event.target.closest("[data-drawer-action]");
+  if (drawerMessage) {
+    const message = messages.find((item) => item.id === drawerMessage.dataset.drawerMessage);
+    if (message) {
+      message.unread = false;
+      closeManagerDrawer();
+      if (message.module === "auto") openAutoControl(); else openModule(message.module);
+      renderMessages();
+      renderManagerDrawer();
+    }
+    return;
+  }
+  if (drawerAction?.dataset.drawerAction === "messages") {
+    closeManagerDrawer();
+    switchView("messages");
+    return;
+  }
   if (moduleButton) {
+    closeManagerDrawer();
     const name = moduleButton.dataset.openModule;
     if (name === "auto") openAutoControl(); else openModule(name, moduleButton.dataset.filter || "全部");
   }
@@ -773,6 +952,19 @@ document.addEventListener("click", (event) => {
 });
 
 $("#headerMessageButton").addEventListener("click", () => switchView("messages"));
+$("#managerDrawerButton").addEventListener("click", openManagerDrawer);
+$("#managerDrawerClose").addEventListener("click", closeManagerDrawer);
+$("#managerDrawerOverlay").addEventListener("click", closeManagerDrawer);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeManagerDrawer();
+});
+window.addEventListener("storage", (event) => {
+  if (event.key !== window.AdminDataBridge?.STORAGE_KEY) return;
+  loadSharedCatalog();
+  updateWorkbenchCounts();
+  renderWorkbench();
+  if (state.currentModule) renderModule();
+});
 $("#manageModulesButton").addEventListener("click", () => $("#moduleGrid").scrollIntoView({ behavior: "smooth", block: "center" }));
 $("#moduleBackButton").addEventListener("click", closeModule);
 $("#detailBackButton").addEventListener("click", () => { $("#managerDetailView").classList.remove("open"); $("#managerDetailView").setAttribute("aria-hidden", "true"); });
@@ -849,8 +1041,9 @@ $("#messageList").addEventListener("click", (event) => {
   if (message.module === "auto") openAutoControl(); else openModule(message.module);
   renderMessages();
 });
-$("#readAllButton").addEventListener("click", () => { messages.forEach((item) => { item.unread = false; }); renderMessages(); showToast("消息已全部标记为已读"); });
+$("#readAllButton").addEventListener("click", () => { messages.forEach((item) => { item.unread = false; }); renderMessages(); renderManagerDrawer(); showToast("消息已全部标记为已读"); });
 
+loadSharedCatalog();
 loadCreatedRecords();
 updateWorkbenchCounts();
 renderWorkbench();

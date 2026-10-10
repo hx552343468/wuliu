@@ -10,6 +10,9 @@
   <body>
     <div class="phone-shell">
       <header class="mobile-header" id="mobileHeader">
+        <button class="icon-button drawer-toggle" id="taskDrawerButton" type="button" aria-label="打开接单总览">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
         <div class="header-copy">
           <span class="eyebrow" id="headerEyebrow">集卡司机端</span>
           <h1 id="mobileTitle">接单</h1>
@@ -39,6 +42,31 @@
           <div class="order-list" id="orderList"></div>
         </section>
 
+        <section class="mobile-view assistant-view" id="assistantView" data-title="AI 助手">
+          <div class="assistant-hero">
+            <div class="assistant-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-8 8v2a2 2 0 0 0 2 2h1v-4a5 5 0 0 1 10 0v4h1a2 2 0 0 0 2-2v-2a8 8 0 0 0-8-8Z"/><path d="M7 15v1a5 5 0 0 0 10 0v-1M10 19h4"/></svg>
+            </div>
+            <div>
+              <strong>你好，我是你的 AI 助手</strong>
+              <p>可以帮你快速查看运单、路线和任务状态</p>
+            </div>
+          </div>
+          <div class="assistant-context" id="assistantContext"></div>
+          <div class="assistant-messages" id="assistantMessages" aria-live="polite"></div>
+          <div class="assistant-quick-list" id="assistantQuickList" aria-label="快捷提问">
+            <button type="button" data-assistant-prompt="我有哪些进行中的运单？">进行中的运单</button>
+            <button type="button" data-assistant-prompt="帮我看一下最近的路线">最近的路线</button>
+            <button type="button" data-assistant-prompt="我的任务现在是什么状态？">任务状态</button>
+          </div>
+          <form class="assistant-composer" id="assistantForm">
+            <input id="assistantInput" type="text" autocomplete="off" placeholder="问问你的运单、路线或任务状态" maxlength="120" />
+            <button type="submit" aria-label="发送消息">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg>
+            </button>
+          </form>
+        </section>
+
         <section class="mobile-view profile-view" id="profileView" data-title="个人中心">
           <div class="profile-hero">
             <div class="avatar" id="profileAvatar">赵</div>
@@ -58,21 +86,17 @@
             <div class="profile-order-stats" id="profileOrderStats"></div>
           </section>
 
-          <section class="profile-menu-group">
-            <h2>账户与安全</h2>
-            <div class="profile-menu-list">
-              <button data-profile-page="certification" type="button"><span class="profile-menu-icon orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span>司机认证</span><em class="certification-state" id="certificationMenuStatus">未认证</em><b>›</b></button>
-              <button data-profile-page="personal" type="button"><span class="profile-menu-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>个人信息</span><b>›</b></button>
-              <button data-profile-page="documents" type="button"><span class="profile-menu-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6.5 16c.8-1.8 4.2-1.8 5 0M14 10h3M14 14h3"/></svg></span><span>证件管理</span><b>›</b></button>
-              <button data-profile-page="security" type="button"><span class="profile-menu-icon purple"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg></span><span>账户安全</span><b>›</b></button>
-            </div>
-          </section>
-
-          <section class="profile-menu-group">
-            <h2>车辆信息</h2>
-            <div class="profile-menu-list">
-              <button data-profile-page="vehicle" type="button"><span class="profile-menu-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V8l2-3h10l2 3v8M5 11h14M7 16v2M17 16v2"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg></span><span>车辆信息</span><b>›</b></button>
-              <button data-profile-page="insurance" type="button"><span class="profile-menu-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span>车辆保险</span><b>›</b></button>
+          <section class="profile-data-section">
+            <header class="profile-data-heading"><div><span>资料管理</span><h2>我的资料</h2></div><small>实时同步</small></header>
+            <div class="profile-data-grid">
+              <article class="profile-info-card basic-info-card">
+                <button class="profile-info-card-main" data-profile-page="personal" type="button"><span class="profile-info-icon blue"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span><strong>基础信息</strong><small id="profileBasicMeta">个人信息 · 证件资料</small></span><b>›</b></button>
+                <div class="profile-info-card-links"><button data-profile-page="certification" type="button"><span>司机认证</span><em class="certification-state" id="certificationMenuStatus">未认证</em><b>›</b></button><button data-profile-page="documents" type="button"><span>证件管理</span><b>›</b></button></div>
+              </article>
+              <article class="profile-info-card vehicle-info-card">
+                <button class="profile-info-card-main" data-profile-page="vehicle" type="button"><span class="profile-info-icon green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16V8l2-3h10l2 3v8M5 11h14M7 16v2M17 16v2"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg></span><span><strong>车辆信息</strong><small id="profileVehicleMeta">车辆档案 · 保险信息</small></span><b>›</b></button>
+                <div class="profile-info-card-links"><button data-profile-page="insurance" type="button"><span>车辆保险</span><em id="vehicleInsuranceStatus">已关联</em><b>›</b></button></div>
+              </article>
             </div>
           </section>
 
@@ -113,12 +137,41 @@
         </section>
       </main>
 
+      <div class="task-drawer-overlay" id="taskDrawerOverlay" aria-hidden="true"></div>
+      <aside class="task-drawer" id="taskDrawer" aria-hidden="true" aria-label="接单总览">
+        <header class="task-drawer-header">
+          <div class="drawer-driver">
+            <div class="drawer-avatar" id="drawerAvatar">赵</div>
+            <div>
+              <strong id="drawerDriverName">赵亮</strong>
+              <span id="drawerDriverMeta">自有司机 · 临港车队</span>
+            </div>
+          </div>
+          <button class="drawer-close" id="taskDrawerClose" type="button" aria-label="关闭接单总览">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+        <div class="task-drawer-scroll">
+          <section class="drawer-section drawer-overview-section">
+            <div class="drawer-section-heading"><div><span>接单总览</span><strong>我的运输任务</strong></div><span class="drawer-date" id="drawerTodayLabel">今天</span></div>
+            <div class="drawer-stats" id="drawerStats"></div>
+          </section>
+          <section class="drawer-section drawer-record-section">
+            <div class="drawer-section-heading"><div><span>最近记录</span><strong>我的运单</strong></div><button type="button" data-drawer-action="orders">查看全部 <b>›</b></button></div>
+            <div class="drawer-record-list" id="drawerRecordList"></div>
+          </section>
+        </div>
+      </aside>
+
       <nav class="bottom-nav" id="bottomNav" aria-label="主导航">
         <button class="active" data-view="tasks" type="button">
           <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4zM8 7V5h8v2M8 12h8"/></svg></span><span>接单</span>
         </button>
         <button data-view="orders" type="button">
           <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg></span><span>运单</span>
+        </button>
+        <button data-view="assistant" type="button">
+          <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v2a2 2 0 0 0 2 2h1v-4a5 5 0 0 1 10 0v4h1a2 2 0 0 0 2-2v-2a8 8 0 0 0-8-8Z"/><path d="M7 15v1a5 5 0 0 0 10 0v-1M10 19h4"/></svg></span><span>AI 助手</span>
         </button>
         <button data-view="profile" type="button">
           <span class="nav-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><span>我的</span>

@@ -87,6 +87,9 @@ assert.ok(savedDispatches > 0, "automatic execution should persist assignments")
 assert.equal(find("#autoExecutionToggle").checked, true);
 assert.equal(find("#autoExecutionBadge").textContent, "自动执行中");
 assert.match(find("#autoRunSummary").textContent, /成功/);
+assert.ok(Number(find("#autoExceptionCount").textContent) <= 3, "demo exceptions should stay limited");
+assert.ok(Number(find("#autoResultCount").textContent) >= 4, "demo results should include multiple dispatched tasks");
+assert.ok(Number(find("#autoFleetCount").textContent) >= 8, "demo fleet should include more capacity rows");
 
 tabs[2].listeners.click();
 assert.match(find("#autoTaskBody").innerHTML, /WB-PENDING/);
@@ -99,6 +102,11 @@ tabs[3].listeners.click();
 assert.match(find("#autoTaskBody").innerHTML, /在途/);
 assert.match(find("#autoTaskBody").innerHTML, /作业中/);
 assert.match(find("#autoTaskBody").innerHTML, /维修中/);
+assert.match(find("#autoTableHead").innerHTML, /节点进度/);
+assert.match(find("#autoTaskBody").innerHTML, /auto-node-progress/);
+assert.ok((find("#autoTaskBody").innerHTML.match(/near-complete/g) || []).length >= 3, "fleet should show several near-complete tasks");
+assert.ok(find("#autoTaskBody").innerHTML.indexOf("浙C·L3210") < find("#autoTaskBody").innerHTML.indexOf("浙C·Q1188"), "near-complete vehicles should be listed first");
+assert.match(find("#autoInspector").innerHTML, /当前任务节点进度/);
 
 find("#autoExecutionToggle").listeners.change({ target: { checked: false } });
 assert.equal(find("#autoExecutionBadge").textContent, "已暂停");

@@ -1,42 +1,86 @@
-# Product Design QA — 首页运营驾驶舱
+# Product Design QA - 派单管理任务统计精简
 
-- Source visual truth path: `C:\Users\ac596\AppData\Local\Temp\codex-clipboard-49dfc022-1c89-4fc9-8412-0bd649ecdab2.png`
-- Implementation screenshot path: `D:\桌面文件\集卡物流系统\dashboard-warning.png`
-- Viewport: 1920 × 1080
-- State: 首页默认态，全部客户 / 全部项目 / 全部线路，快完成阈值 70%
+- Existing product baseline: 派单管理现有统计卡片与响应式布局
+- Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\dispatch-management-pending-stat.png`
+- Viewport: 1366 x 900
+- State: 派单管理初始演示状态
 
 ## Full-view comparison evidence
 
-The selected dual-ring direction is implemented in the same dashboard shell. The previous equal-weight grids have been replaced with vehicle and driver composition rings plus compact clickable legends. Today's tasks use one completion-rate gauge and six quieter KPI tiles. A compact certificate-warning strip now sits between transportation amounts and operational capacity so urgent compliance risk remains visible without pushing the detail table out of the verified first screen.
+The rendered page shows one task-order metric, `待派单`, followed by the four unchanged capacity metrics. All five cards fit on one row at the verified desktop viewport, and the workbench moves upward without unused statistic slots.
 
 ## Focused region comparison evidence
 
-The source focuses on the capacity and task modules, so those two regions were checked closely in the full-resolution implementation capture. Ring labels, totals, legend colors, KPI labels, exception emphasis, header links, and alignment remain readable without clipping.
+The statistics region was inspected at full resolution. `已派单`, `运输中`, and `已完成` are absent from the task-order group, while the capacity group still contains `空闲`, `运输中`, `即将完成`, and `停用`.
 
 ## Findings
 
-- No actionable P0/P1/P2 visual or interaction findings remain after the refinement pass.
-- Typography: matches the existing product's system-font stack, compact scale, weight hierarchy, truncation behavior, and admin-density conventions.
-- Spacing and layout rhythm: the ring-and-legend structure removes the dense internal grid lines while preserving compact card height, consistent 8 px radii, and first-screen visibility.
-- Colors and tokens: blue remains the only primary action color; green, orange, and red are reserved for available/completed, near-complete/warning, and exception states.
-- Image quality and assets: no new decorative raster assets were required; all functional icons use the project's existing local Lucide runtime. Node-photo names are exposed through the existing dispatch-detail timeline.
-- Copy and content: all requested business terms are present, including customer–project–route filtering, configurable near-complete rules, automatic/manual dispatch split, plan completion, transportation amounts, and exception handling.
+- No actionable P0/P1/P2 findings remain.
+- Typography: the pending count keeps the same label and numeric hierarchy as the existing statistics cards.
+- Spacing and layout rhythm: the task and capacity groups use a 1:4 track ratio so each visible card has a comparable width.
+- Colors and visual tokens: the pending card retains the established orange status treatment; capacity semantics are unchanged.
+- Image quality and assets: no image assets were required or changed.
+- Copy and content: task-order statistics expose only the requested pending count.
+- Responsive behavior: the groups stack below 1060 px, and the capacity cards continue to collapse to two columns on small screens.
 
-## Patches made since the previous QA pass
+## Patches made
 
-- Moved transportation amount directly below the global operations bar.
-- Refined cards, filters, KPI typography, icon treatments, spacing, borders, and shadows to match the selected clean dashboard reference.
-- Replaced the vehicle and driver status grids with two composition rings and clickable legends.
-- Replaced the linear completion footer with a completion-rate gauge and six independent task KPI tiles.
-- Added live driver/vehicle task stages, progress, near-complete highlighting, and exception action.
-- Added customer–project–route plan completion rows.
-- Added today/month/cumulative transportation amounts and customer/route distribution toggle.
-- Added insurance, vehicle-license, road-transport-permit, driver-license, and qualification-certificate warnings with overdue/7-day/30-day tiers and record drill-down.
-- Added 15-second refresh, persisted near-complete threshold, and dispatch-detail drill-down.
-- Aligned the displayed operating date to September 24, 2026 while retaining the seeded demo records as the dashboard data snapshot.
+- Removed dispatched, moving, and completed metrics from the task-order renderer.
+- Added a single-card task statistics layout.
+- Rebalanced the desktop statistics grid to one task card and four capacity cards.
+- Added regression assertions for the simplified task statistics.
 
-## Follow-up polish
+final result: passed
 
-- P3: Replace demo seed amounts and plan quantities with the eventual backend API payload when available.
+---
+
+# Product Design QA - 移除自动派单导航
+
+- Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\sidebar-without-auto-dispatch.png`
+- Viewport: 2048 x 997
+
+## Findings
+
+- The `计划管理与派发 / 自动派单` navigation item is removed.
+- The `系统配置 / 自动派单配置` navigation item remains visible and unchanged.
+- Navigation spacing remains balanced with no empty gap or clipped item.
+
+final result: passed
+
+---
+
+# Product Design QA - 侧边栏导航优化
+
+- Existing product baseline: 集卡物流系统现有白色侧边栏导航
+- Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\sidebar-navigation-optimized.png`
+- Viewport: 2048 x 997
+- State: 首页看板，导航位于顶部初始位置
+
+## Findings
+
+- `统计分析` navigation item is removed.
+- `系统配置` and its `自动派单配置` child are visible without scrolling at the reference viewport.
+- Brand area stays fixed while the navigation region can scroll independently on shorter viewports.
+- Reduced navigation row height remains consistent with the existing dense operational UI.
+- No clipped labels, overlap, or sidebar-to-content collision was found.
+
+final result: passed
+
+---
+
+# Product Design QA - 派单结果弹窗
+
+- Existing product baseline: 系统原生 `dialog` 弹窗、按钮与状态色规范
+- Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\dispatch-result-dialog-final.png`
+- Viewport: 1440 x 1000
+- State: 自动派单 15 条任务，成功 8 条，未派 7 条
+
+## Findings
+
+- Result feedback is shown in a centered modal; no result banner remains above the page statistics.
+- The partial-success state uses the existing orange warning treatment and clearly identifies the operation result.
+- Total, successful, and unassigned counts remain legible as three separate metrics.
+- The modal provides both `留在当前页` and `前往派单列表` actions, with the destination action visually prioritized.
+- No text clipping, overlap, or viewport overflow was found at the verified desktop viewport.
 
 final result: passed

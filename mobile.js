@@ -139,6 +139,8 @@ const state = {
   activeDispatchId: "",
   activeProfilePage: "",
   certifications: loadCertifications(),
+  assistantDriverId: "",
+  assistantMessages: [],
 };
 
 const elements = {
@@ -146,10 +148,25 @@ const elements = {
   title: document.querySelector("#mobileTitle"),
   tasksView: document.querySelector("#tasksView"),
   ordersView: document.querySelector("#ordersView"),
+  assistantView: document.querySelector("#assistantView"),
   profileView: document.querySelector("#profileView"),
   bottomNav: document.querySelector("#bottomNav"),
   taskList: document.querySelector("#taskList"),
   orderList: document.querySelector("#orderList"),
+  assistantContext: document.querySelector("#assistantContext"),
+  assistantMessages: document.querySelector("#assistantMessages"),
+  assistantQuickList: document.querySelector("#assistantQuickList"),
+  assistantForm: document.querySelector("#assistantForm"),
+  assistantInput: document.querySelector("#assistantInput"),
+  taskDrawerButton: document.querySelector("#taskDrawerButton"),
+  taskDrawer: document.querySelector("#taskDrawer"),
+  taskDrawerOverlay: document.querySelector("#taskDrawerOverlay"),
+  taskDrawerClose: document.querySelector("#taskDrawerClose"),
+  drawerAvatar: document.querySelector("#drawerAvatar"),
+  drawerDriverName: document.querySelector("#drawerDriverName"),
+  drawerDriverMeta: document.querySelector("#drawerDriverMeta"),
+  drawerStats: document.querySelector("#drawerStats"),
+  drawerRecordList: document.querySelector("#drawerRecordList"),
   detailView: document.querySelector("#detailView"),
   detailContent: document.querySelector("#detailContent"),
   detailActionBar: document.querySelector("#detailActionBar"),
@@ -267,6 +284,34 @@ function renderTasks() {
   elements.taskList.innerHTML = rows.length ? rows.map(taskCard).join("") : emptyState("暂无待接订单", "新派单到达后会在这里显示");
 }
 
+function renderTaskDrawer() {
+  const driver = currentDriver();
+  const orders = driverDispatches();
+  const counts = {
+    total: orders.length,
+    pending: orders.filter((item) => item.status === "已派单").length,
+    active: orders.filter((item) => item.status === "运输中").length,
+    completed: orders.filter((item) => item.status === "已完成").length,
+  };
+  elements.drawerAvatar.textContent = driver.name.slice(0, 1);
+  elements.drawerDriverName.textContent = driver.name;
+  elements.drawerDriverMeta.textContent = `${driver.type} · ${driver.fleet}`;
+  elements.drawerStats.innerHTML = [
+    ["total", "全部接单", counts.total, "all"],
+    ["pending", "待确认", counts.pending, "pending"],
+    ["active", "运输中", counts.active, "transit"],
+    ["completed", "已完成", counts.completed, "completed"],
+  ].map(([className, label, count, filter]) => `
+    <button class="drawer-stat ${className}" type="button" data-drawer-filter="${filter}"><strong>${count}</strong><span>${label}</span></button>`).join("");
+  const records = [...orders].sort((a, b) => String(b.dispatchTime || "").localeCompare(String(a.dispatchTime || ""))).slice(0, 4);
+  elements.drawerRecordList.innerHTML = records.length ? records.map((item) => `
+    <button class="drawer-record" type="button" data-drawer-dispatch="${h(item.id)}">
+      <span class="drawer-record-icon">${h(item.routeName.slice(0, 1))}</span>
+      <span class="drawer-record-copy"><strong>${h(item.routeName)}</strong><small>${h(item.waybillNo)} · ${h(item.destination)}</small></span>
+      <span class="drawer-record-status ${dispatchCategory(item)}">${h(statusLabel(item))}</span>
+    </button>`).join("") : `<div class="drawer-empty">暂无运单记录</div>`;
+}
+
 function orderCard(dispatch) {
   const category = dispatchCategory(dispatch);
   return `
@@ -292,6 +337,70 @@ function renderOrders() {
   elements.orderList.innerHTML = rows.length ? rows.map(orderCard).join("") : emptyState("没有找到运单", "请调整状态筛选或搜索关键词");
 }
 
+function assistantStatus(dispatch) {
+  if (dispatch.status === "运输中") return dispatch.currentNode || "运输中";
+  return dispatch.status || dispatch.currentNode || "待同步";
+}
+
+function assistantReply(prompt) {
+  const keyword = String(prompt).toLowerCase();
+  const orders = driverDispatches();
+  const activeOrders = orders.filter((item) => ["已派单", "运输中"].includes(item.status));
+  const currentOrder = activeOrders.find((item) => item.status === "运输中") || activeOrders[0] || orders[0];
+
+  if (keyword.includes("路线") || keyword.includes("目的地") || keyword.includes("去哪")) {
+    if (!currentOrder) return "当前还没有可查询的运输路线。";
+    return `最近路线：${currentOrder.routeName}\n起运地：${currentOrder.origin}\n目的地：${currentOrder.destination}\n当前任务：${assistantStatus(currentOrder)}`;
+  }
+
+  if (keyword.includes("状态") || keyword.includes("任务")) {
+    const pendingCount = orders.filter((item) => item.status === "已派单").length;
+    const transitCount = orders.filter((item) => item.status === "运输中").length;
+    const completedCount = orders.filter((item) => item.status === "已完成").length;
+    return `你的任务状态：\n待确认 ${pendingCount} 单，运输中 ${transitCount} 单，已完成 ${completedCount} 单。${currentOrder ? `\n当前重点：${currentOrder.routeName} · ${assistantStatus(currentOrder)}` : ""}`;
+  }
+
+  if (keyword.includes("运单") || keyword.includes("进行中") || keyword.includes("订单")) {
+    if (!activeOrders.length) return "目前没有待处理或运输中的运单。";
+    return `你有 ${activeOrders.length} 个待处理运单：\n${activeOrders.slice(0, 3).map((item) => `${item.waybillNo} · ${item.routeName} · ${assistantStatus(item)}`).join("\n")}`;
+  }
+
+  return `我可以帮你查看运单、路线和任务状态。\n当前共有 ${orders.length} 条司机端运单记录，你可以直接问“我有哪些进行中的运单？”`;
+}
+
+function renderAssistant() {
+  if (state.assistantDriverId !== state.currentDriverId) {
+    state.assistantDriverId = state.currentDriverId;
+    state.assistantMessages = [];
+  }
+  const driver = currentDriver();
+  const orders = driverDispatches();
+  const activeCount = orders.filter((item) => ["已派单", "运输中"].includes(item.status)).length;
+  const transitCount = orders.filter((item) => item.status === "运输中").length;
+  elements.assistantContext.innerHTML = `
+    <div><span>当前司机</span><strong>${h(driver.name)}</strong></div>
+    <div><span>待处理运单</span><strong>${activeCount} 单</strong></div>
+    <div><span>运输中</span><strong>${transitCount} 单</strong></div>`;
+  if (!state.assistantMessages.length) {
+    state.assistantMessages.push({ role: "assistant", text: `你好，${driver.name}。\n我可以帮你快速查看运单、路线和任务状态。` });
+  }
+  elements.assistantMessages.innerHTML = state.assistantMessages.map((message) => `
+    <div class="assistant-message ${message.role === "user" ? "user" : "assistant"}">
+      ${message.role === "assistant" ? `<span class="assistant-message-avatar">AI</span>` : ""}
+      <p>${h(message.text)}</p>
+    </div>`).join("");
+  elements.assistantMessages.scrollTop = elements.assistantMessages.scrollHeight;
+}
+
+function sendAssistantMessage(value) {
+  const prompt = String(value || "").trim();
+  if (!prompt) return;
+  state.assistantMessages.push({ role: "user", text: prompt });
+  state.assistantMessages.push({ role: "assistant", text: assistantReply(prompt) });
+  renderAssistant();
+  elements.assistantInput.value = "";
+}
+
 function daysUntil(dateText) {
   const today = new Date();
   const date = new Date(`${dateText}T00:00:00`);
@@ -306,6 +415,8 @@ function renderProfile() {
   const pickup = orders.filter((item) => item.status === "运输中" && ["已接单", "待提货"].includes(item.currentNode)).length;
   const transit = orders.filter((item) => item.status === "运输中" && ["已提货", "在途"].includes(item.currentNode)).length;
   const completed = orders.filter((item) => item.status === "已完成").length;
+  const currentVehicleDispatch = driverDispatches().find((item) => item.vehicleId && item.status === "运输中")
+    || driverDispatches().find((item) => item.vehicleId);
   document.querySelector("#profileAvatar").textContent = driver.name.slice(0, 1);
   document.querySelector("#profileName").textContent = driver.name;
   document.querySelector("#profileMeta").textContent = `${driver.type} · ${driver.fleet}`;
@@ -316,6 +427,12 @@ function renderProfile() {
   const menuStatus = document.querySelector("#certificationMenuStatus");
   menuStatus.textContent = certificationView.label;
   menuStatus.className = `certification-state ${certificationView.className}`;
+  const basicMeta = document.querySelector("#profileBasicMeta");
+  if (basicMeta) basicMeta.textContent = `个人信息 · ${certificationView.label}`;
+  const vehicleMeta = document.querySelector("#profileVehicleMeta");
+  if (vehicleMeta) vehicleMeta.textContent = currentVehicleDispatch?.vehicleId ? `${currentVehicleDispatch.vehicleId} · 车辆档案` : "暂未分配车辆";
+  const insuranceStatus = document.querySelector("#vehicleInsuranceStatus");
+  if (insuranceStatus) insuranceStatus.textContent = currentVehicleDispatch?.vehicleId ? "已关联" : "待完善";
   document.querySelector("#profileOrderStats").innerHTML = `
     <button data-order-stage="all" type="button"><strong>${orders.length}</strong><span>全部运单</span></button>
     <button data-order-stage="pickup" type="button"><strong>${pickup}</strong><span>待提货</span></button>
@@ -545,6 +662,8 @@ function renderDriverOptions() {
 function renderAll() {
   renderTasks();
   renderOrders();
+  renderAssistant();
+  renderTaskDrawer();
   renderProfile();
   if (elements.detailView.classList.contains("open")) renderDetail();
   if (elements.profileSubpage.classList.contains("open") && state.activeProfilePage) renderSubpage(state.activeProfilePage);
@@ -553,11 +672,51 @@ function renderAll() {
 function switchView(viewName) {
   const target = document.querySelector(`#${viewName}View`);
   if (!target) return;
+  if (viewName !== "tasks") closeTaskDrawer();
   document.querySelectorAll(".mobile-view").forEach((view) => view.classList.toggle("active", view === target));
   elements.bottomNav.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.view === viewName));
+  elements.taskDrawerButton.hidden = viewName !== "tasks";
   elements.title.textContent = target.dataset.title;
   target.scrollTo({ top: 0, behavior: "smooth" });
   if (viewName === "profile") renderProfile();
+  if (viewName === "assistant") renderAssistant();
+}
+
+function openTaskDrawer() {
+  renderTaskDrawer();
+  elements.taskDrawer.classList.add("open");
+  elements.taskDrawerOverlay.classList.add("open");
+  elements.taskDrawer.setAttribute("aria-hidden", "false");
+  elements.taskDrawerOverlay.setAttribute("aria-hidden", "false");
+  document.querySelector(".phone-shell").classList.add("drawer-open");
+}
+
+function closeTaskDrawer() {
+  if (!elements.taskDrawer) return;
+  elements.taskDrawer.classList.remove("open");
+  elements.taskDrawerOverlay.classList.remove("open");
+  elements.taskDrawer.setAttribute("aria-hidden", "true");
+  elements.taskDrawerOverlay.setAttribute("aria-hidden", "true");
+  document.querySelector(".phone-shell").classList.remove("drawer-open");
+}
+
+function openDrawerFilter(filter) {
+  closeTaskDrawer();
+  if (filter === "pending") {
+    switchView("tasks");
+    return;
+  }
+  if (filter === "all" || filter === "transit" || filter === "completed") {
+    openOrdersForStage(filter === "transit" ? "transit" : filter === "completed" ? "completed" : "all");
+    return;
+  }
+  state.orderFilter = "cancelled";
+  state.orderStage = "all";
+  state.orderSearch = "";
+  document.querySelector("#orderSearch").value = "";
+  document.querySelectorAll("#orderStatusTabs button").forEach((button) => button.classList.toggle("active", button.dataset.status === "cancelled"));
+  renderOrders();
+  switchView("orders");
 }
 
 function openDetail(dispatchId) {
@@ -656,6 +815,28 @@ elements.bottomNav.addEventListener("click", (event) => {
   if (button) switchView(button.dataset.view);
 });
 
+elements.taskDrawerButton.addEventListener("click", openTaskDrawer);
+elements.taskDrawerClose.addEventListener("click", closeTaskDrawer);
+elements.taskDrawerOverlay.addEventListener("click", closeTaskDrawer);
+elements.taskDrawer.addEventListener("click", (event) => {
+  const dispatchButton = event.target.closest("[data-drawer-dispatch]");
+  if (dispatchButton) {
+    closeTaskDrawer();
+    openDetail(dispatchButton.dataset.drawerDispatch);
+    return;
+  }
+  const filterButton = event.target.closest("[data-drawer-filter]");
+  if (filterButton) openDrawerFilter(filterButton.dataset.drawerFilter);
+  const actionButton = event.target.closest("[data-drawer-action]");
+  if (actionButton?.dataset.drawerAction === "orders") {
+    closeTaskDrawer();
+    openOrdersForStage("all");
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && elements.taskDrawer.classList.contains("open")) closeTaskDrawer();
+});
+
 function handleDispatchAction(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
@@ -667,6 +848,16 @@ function handleDispatchAction(event) {
 
 elements.taskList.addEventListener("click", handleDispatchAction);
 elements.orderList.addEventListener("click", handleDispatchAction);
+
+elements.assistantForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  sendAssistantMessage(elements.assistantInput.value);
+});
+
+elements.assistantQuickList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-assistant-prompt]");
+  if (button) sendAssistantMessage(button.dataset.assistantPrompt);
+});
 
 function openOrdersForStage(stage) {
   const filterByStage = { all: "all", pickup: "active", transit: "active", completed: "completed" };

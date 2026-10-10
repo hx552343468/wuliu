@@ -33,5 +33,10 @@ assert.match(css, /\.customer-entry-page > form\s*\{[\s\S]*flex:\s*1 1 auto[\s\S
 assert.match(css, /\.customer-entry-actions\s*\{[\s\S]*flex:\s*0 0 auto[\s\S]*border-top:/);
 assert.match(css, /\.admin-form-dialog \.required-field > \.field-label::after/);
 assert.match(behavior, /customerSectionNav/);
+assert.doesNotMatch(html, />统计分析<\/button>/);
+assert.doesNotMatch(html, /class="nav-child"[^>]*data-page="auto-dispatch"/);
+assert.match(html, /data-page="auto-dispatch-config"[^>]*>自动派单配置<\/button>/);
+assert.match(css, /\.sidebar\s*\{[\s\S]*?display:\s*flex[\s\S]*?height:\s*100vh[\s\S]*?flex-direction:\s*column[\s\S]*?overflow:\s*hidden/);
+assert.match(css, /\.nav-menu\s*\{[\s\S]*?flex:\s*1 1 auto[\s\S]*?overflow-y:\s*auto/);
 
 console.log("entry page style tests passed");

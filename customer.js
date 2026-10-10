@@ -52,8 +52,16 @@
     return seed.map(normalizeCustomer);
   }
   let customers = loadCustomers();
+  if (window.AdminDataBridge) {
+    const snapshot = window.AdminDataBridge.read() || {};
+    window.AdminDataBridge.write({ ...snapshot, customers });
+  }
   function saveCustomers() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
+    if (window.AdminDataBridge) {
+      const snapshot = window.AdminDataBridge.read() || {};
+      window.AdminDataBridge.write({ ...snapshot, customers });
+    }
     refreshWaybillOptions();
   }
   function refreshWaybillOptions() {
@@ -274,7 +282,13 @@
   page.querySelector("#customerNextPage").addEventListener("click", () => { currentPage += 1; render(); });
   jump.addEventListener("change", () => { currentPage = Number(jump.value) || 1; render(); });
   window.addEventListener("storage", (event) => {
-    if (event.key !== STORAGE_KEY) return;
+    if (event.key === window.AdminDataBridge?.STORAGE_KEY) {
+      const snapshot = window.AdminDataBridge.read();
+      if (Array.isArray(snapshot?.customers)) {
+        customers = snapshot.customers.map(normalizeCustomer);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
+      }
+    } else if (event.key !== STORAGE_KEY) return;
     customers = loadCustomers();
     refreshWaybillOptions();
     render();

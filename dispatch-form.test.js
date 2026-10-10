@@ -24,7 +24,7 @@ const routes = {
   "WB-1": { routeCode: "R1", routeName: "线路一", origin: "港区", destination: "仓库", estimatedRevenue: 2000 },
   "WB-2": { routeCode: "R2", routeName: "线路二", origin: "码头", destination: "园区", estimatedRevenue: 3000 },
 };
-const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
+const dialog = { open: false, dataset: {}, showModal() { this.open = true; }, close() { this.open = false; } };
 const context = vm.createContext({
   document: { querySelector: find }, dispatchForm: form, dispatchDialog: dialog,
   dispatches: [],
@@ -43,6 +43,7 @@ vm.runInContext(source.slice(start, end), context);
 
 context.openDispatchForm();
 assert.equal(dialog.open, true);
+assert.equal(dialog.dataset.presentation, "page");
 assert.equal(fields.waybillId.value, "");
 assert.equal(fields.driverId.value, "");
 assert.equal(fields.vehicleId.value, "");
@@ -69,6 +70,7 @@ assert.equal(fields.driverId.value, "");
 assert.equal(fields.vehicleId.value, "");
 
 context.closeDispatchForm();
+assert.equal(dialog.dataset.presentation, "page");
 context.openDispatchForm();
 assert.equal(find("#dispatchRouteName").value, "");
 assert.equal(fields.waybillId.value, "");

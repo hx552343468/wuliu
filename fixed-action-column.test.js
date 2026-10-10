@@ -28,5 +28,6 @@ assert(autoDispatch.match(/<td class="fixed-action-column">/g)?.length >= 2, "Au
 assert(styles.includes(".fixed-action-table .fixed-action-column"), "Fixed action column styles must exist");
 assert(styles.includes("position: sticky"), "Fixed action columns must use sticky positioning");
 assert(styles.includes("right: 0"), "Fixed action columns must stay aligned to the right edge");
+assert(/#dispatchPage \.fixed-action-table\s*\{[^}]*width:\s*100%/s.test(styles), "Dispatch table must fill the available card width");
 
 console.log("Fixed backend action column test passed");

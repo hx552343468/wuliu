@@ -7,9 +7,18 @@ if (!html.includes("首页看板") || html.includes('data-page="vehicle-dashboar
   throw new Error("Dashboard must be presented as 首页看板");
 }
 
+const standaloneDashboardNav = html.indexOf('class="nav-item nav-dashboard selected" data-page="vehicle-dashboard"');
+const firstBusinessSection = html.indexOf('<section class="nav-section active">');
+if (standaloneDashboardNav < 0 || standaloneDashboardNav > firstBusinessSection) {
+  throw new Error("首页看板 must be a standalone top-level navigation item");
+}
+
 for (const id of [
   "dashboardPage",
   "dashboardFilters",
+  "dashboardDateRange",
+  "dashboardScopeTitle",
+  "dashboardTaskTitle",
   "dashboardCustomerFilter",
   "dashboardProjectFilter",
   "dashboardRouteFilter",
@@ -24,9 +33,7 @@ for (const id of [
   "dashboardPlanCompletion",
   "dashboardAmountTotals",
   "dashboardAmountDistribution",
-  "dashboardWarningSummary",
-  "dashboardWarningStats",
-  "dashboardCredentialWarnings",
+  "vehicleReminderCards",
   "refreshDashboardBtn",
 ]) {
   if (!html.includes(`id="${id}"`)) throw new Error(`Missing dashboard element: ${id}`);
@@ -39,8 +46,12 @@ if (!(commandIndex < amountIndex && amountIndex < overviewIndex)) {
   throw new Error("Transportation amount must sit directly below the operations overview");
 }
 
-for (const label of ["今日运营全局", "运力状态", "今日任务", "实时运力任务", "计划完成统计", "运输金额", "证照预警", "快完成规则"]) {
+for (const label of ["时间范围", "昨日", "今日", "近7天", "近一月", "今日运营全局", "运力状态", "今日任务", "实时运力任务", "计划完成统计", "运输金额", "快完成规则"]) {
   if (!html.includes(label) && !app.includes(label)) throw new Error(`Missing dashboard label: ${label}`);
+}
+
+if (html.includes('class="dashboard-panel credential-warning-panel"')) {
+  throw new Error("Credential warnings must be moved out of the homepage dashboard");
 }
 
 for (const removedLabel of ["车辆调度工作台", "派单工作台", "线路运营工作台", "调度提醒", "固定线路今日负荷", "闲置可派车辆", "待执行任务"]) {
@@ -55,7 +66,7 @@ for (const token of ["dashboardToday", "getDashboardVehicleState", "renderDashbo
   if (!app.includes(token)) throw new Error(`Missing dashboard logic: ${token}`);
 }
 
-for (const selector of [".dashboard-command-bar", ".dashboard-filters", ".dashboard-overview-grid", ".dashboard-detail-grid", ".capacity-donut", ".task-completion-gauge", ".capacity-status-item", ".capacity-task-row", ".plan-completion-row", ".amount-total", ".credential-warning-panel", ".credential-warning-item"]) {
+for (const selector of [".dashboard-command-bar", ".dashboard-filters", ".dashboard-overview-grid", ".dashboard-detail-grid", ".capacity-donut", ".task-completion-gauge", ".capacity-status-item", ".capacity-task-row", ".plan-completion-row", ".amount-total", ".nav-item.selected"]) {
   if (!css.includes(selector)) throw new Error(`Missing dashboard style: ${selector}`);
 }
 
