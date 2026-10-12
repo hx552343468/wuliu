@@ -34,6 +34,41 @@ final result: passed
 
 ---
 
+# Product Design QA - 派单详情二级页面
+
+- Source visual truth: `C:\Users\ac596\AppData\Local\Temp\codex-clipboard-ff7952b8-23ed-4d38-912e-2f2b6823dab6.png`
+- Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\codex-dispatch-detail-qa\chrome-dispatch-detail.png`
+- Viewport: 1440 x 1000
+- State: 派单列表点击“查看”进入派单详情，包含运输节点记录
+
+## Full-view comparison evidence
+
+详情页采用现有后台的浅灰页面背景、白色分区面板、蓝色主色和绿色成功状态，信息层级参考用户提供的订单详情布局，并将字段替换为运单、线路、运力和运输节点信息。
+
+## Focused region comparison evidence
+
+顶部派单摘要、左侧运单与运力分区、右侧运输节点时间线均已检查；节点文字说明、图片条目、当前节点标记和返回列表入口没有出现重叠或裁切。
+
+## Findings
+
+- No actionable P0/P1/P2 findings remain.
+- Typography: 延续现有后台的中文字体与紧凑运营台账层级。
+- Spacing and layout rhythm: 详情页使用摘要横向指标、左主区右节点区的二级布局，桌面视口下内容完整可读。
+- Colors and visual tokens: 使用现有 `--primary`、状态色、边框和阴影，不引入新主题。
+- Image quality and assets: 真实图片通过 IndexedDB Blob 读取并在预览弹窗展示；仅有历史文件名的数据明确显示不可预览状态。
+- Copy and content: 业务字段均为集卡物流语境，保留派单、运单、司机、车辆、箱信息和节点上报文案。
+
+## Patches made since previous QA pass
+
+- 新增派单详情二级页面、返回列表和编辑入口。
+- 将列表、运力列表和看板的“查看派单”统一切换到详情页面。
+- 增加节点文字、图片列表、图片预览及 IndexedDB 图片读取。
+- 增加 `dispatch-detail-page.test.js` 回归测试。
+
+final result: passed
+
+---
+
 # Product Design QA - 移除自动派单导航
 
 - Implementation screenshot: `C:\Users\ac596\AppData\Local\Temp\sidebar-without-auto-dispatch.png`

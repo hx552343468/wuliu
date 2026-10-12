@@ -219,6 +219,7 @@ const pageViews = {
   waybill: document.querySelector("#waybillPage"),
   route: document.querySelector("#routePage"),
   dispatch: document.querySelector("#dispatchPage"),
+  dispatchDetail: document.querySelector("#dispatchDetailPage"),
   dispatchManagement: document.querySelector("#dispatchManagementPage"),
   capacity: document.querySelector("#capacityPage"),
   autoDispatch: document.querySelector("#autoDispatchPage"),
@@ -237,6 +238,7 @@ const pageMeta = {
   "fixed-routes": { title: "固定线路管理", kicker: "计划管理与派发 / 固定线路", view: "route" },
   "dispatch-management": { title: "派单管理", kicker: "计划管理与派发 / 调度工作台", view: "dispatchManagement" },
   "dispatch-list": { title: "派单列表", kicker: "计划管理与派发 / 派单调度", view: "dispatch" },
+  "dispatch-detail": { title: "派单详情", kicker: "计划管理与派发 / 派单列表 / 派单详情", view: "dispatchDetail", navPage: "dispatch-list" },
   "capacity-management": { title: "运力管理", kicker: "计划管理与派发 / 运力状态", view: "capacity" },
   "auto-dispatch": { title: "自动派单", kicker: "计划管理与派发 / 智能调度", view: "autoDispatch" },
   "auto-dispatch-config": { title: "自动派单配置", kicker: "系统配置 / 自动派单", view: "autoDispatchConfig" },
@@ -421,6 +423,61 @@ const insurancePolicies = [
   ["浙A·F2190", "商业险", "中国人保杭州分公司", "PICC20260930031", 2500000, "2026-09-30", 11600, "2025-10-01 至 2026-09-30", "电子保单"],
 ];
 
+const VEHICLE_COMPLIANCE_STORAGE_KEY = "container-logistics-vehicle-compliance-v1";
+const inspectionRecordFields = ["plateNo", "inspectionType", "inspectionDate", "nextInspectionDue", "inspectionAgency", "inspectionFee", "inspectionResult", "remark"];
+const insurancePolicyFields = ["plateNo", "insuranceType", "insuranceCompany", "policyNo", "insuredAmount", "policyExpiry", "premium", "policyPeriod", "attachment", "policyStart", "remark"];
+
+function loadVehicleComplianceRecords() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VEHICLE_COMPLIANCE_STORAGE_KEY) || "{}");
+    if (Array.isArray(saved.inspections)) inspectionRecords.push(...saved.inspections.filter((record) => record && typeof record === "object" && !Array.isArray(record)));
+    if (Array.isArray(saved.policies)) insurancePolicies.push(...saved.policies.filter((record) => record && typeof record === "object" && !Array.isArray(record)));
+  } catch (error) {
+    console.warn("车辆审验或保险记录读取失败，使用初始记录。", error);
+  }
+  vehicles.forEach((vehicle) => {
+    const inspectionDates = inspectionRecords
+      .filter((record) => complianceRecordValue(record, inspectionRecordFields, "plateNo") === vehicle.plateNo)
+      .map((record) => complianceRecordValue(record, inspectionRecordFields, "nextInspectionDue"))
+      .filter(Boolean);
+    if (inspectionDates.length) vehicle.inspectionDue = latestDate(vehicle.inspectionDue, inspectionDates.sort().at(-1));
+
+    const policyFields = {
+      "交强险": ["mandatoryInsuranceNo", "mandatoryInsuranceExpiry"],
+      "商业险": ["commercialInsuranceNo", "commercialInsuranceExpiry"],
+      "货物险": ["cargoInsuranceNo", "cargoInsuranceExpiry"],
+      "承运人责任险": ["liabilityInsuranceNo", "liabilityInsuranceExpiry"],
+    };
+    Object.entries(policyFields).forEach(([type, [numberField, expiryField]]) => {
+      const matchingPolicies = insurancePolicies.filter((policy) =>
+        complianceRecordValue(policy, insurancePolicyFields, "plateNo") === vehicle.plateNo &&
+        complianceRecordValue(policy, insurancePolicyFields, "insuranceType") === type
+      );
+      if (!matchingPolicies.length) return;
+      const latestPolicy = matchingPolicies.reduce((current, candidate) =>
+        String(complianceRecordValue(candidate, insurancePolicyFields, "policyExpiry") || "") > String(complianceRecordValue(current, insurancePolicyFields, "policyExpiry") || "") ? candidate : current
+      );
+      vehicle[numberField] = complianceRecordValue(latestPolicy, insurancePolicyFields, "policyNo") || vehicle[numberField];
+      vehicle[expiryField] = latestDate(vehicle[expiryField], complianceRecordValue(latestPolicy, insurancePolicyFields, "policyExpiry"));
+    });
+    const insuranceDates = [vehicle.commercialInsuranceExpiry, vehicle.mandatoryInsuranceExpiry, vehicle.cargoInsuranceExpiry, vehicle.liabilityInsuranceExpiry].filter(Boolean);
+    if (insuranceDates.length) vehicle.insuranceDue = insuranceDates.sort()[0];
+  });
+}
+
+function saveVehicleComplianceRecords() {
+  try {
+    localStorage.setItem(VEHICLE_COMPLIANCE_STORAGE_KEY, JSON.stringify({
+      inspections: inspectionRecords.filter((record) => !Array.isArray(record)),
+      policies: insurancePolicies.filter((record) => !Array.isArray(record)),
+    }));
+  } catch (error) {
+    console.warn("车辆审验或保险记录保存失败。", error);
+  }
+}
+
+loadVehicleComplianceRecords();
+
 let selectedVehicle = vehicles[0];
 let vehicleCurrentPage = 1;
 let vehiclePageSize = 10;
@@ -436,6 +493,10 @@ let deletingTrailerId = "";
 const vehicleQueryForm = document.querySelector("#vehicleQueryForm");
 const vehicleDialog = document.querySelector("#vehicleDialog");
 const vehicleForm = document.querySelector("#vehicleForm");
+const inspectionRecordDialog = document.querySelector("#inspectionRecordDialog");
+const inspectionRecordForm = document.querySelector("#inspectionRecordForm");
+const insurancePolicyDialog = document.querySelector("#insurancePolicyDialog");
+const insurancePolicyForm = document.querySelector("#insurancePolicyForm");
 const deleteVehicleDialog = document.querySelector("#deleteVehicleDialog");
 const vehiclePageSizeSelect = document.querySelector("#vehiclePageSize");
 const vehiclePageJump = document.querySelector("#vehiclePageJump");
@@ -882,6 +943,10 @@ const projectCustomerSelect = document.querySelector("#projectCustomerSelect");
 let dispatchCurrentPage = 1;
 let dispatchPageSize = 10;
 let deletingDispatchId = "";
+let currentDispatchDetailId = "";
+let dispatchDetailPhotoTargets = [];
+let dispatchPhotoPreviewObjectUrl = "";
+let activePageName = "vehicle-dashboard";
 const selectedDispatchIds = new Set();
 let renderedDispatchIds = [];
 const dispatchQueryForm = document.querySelector("#dispatchQueryForm");
@@ -889,6 +954,14 @@ const dispatchBody = document.querySelector("#dispatchBody");
 const dispatchDialog = document.querySelector("#dispatchDialog");
 const dispatchForm = document.querySelector("#dispatchForm");
 const dispatchDetailDialog = document.querySelector("#dispatchDetailDialog");
+const dispatchDetailPageContent = document.querySelector("#dispatchDetailPageContent");
+const dispatchDetailPageSubtitle = document.querySelector("#dispatchDetailPageSubtitle");
+const dispatchDetailEditBtn = document.querySelector("#dispatchDetailEditBtn");
+const dispatchDetailBackBtn = document.querySelector("#dispatchDetailBackBtn");
+const dispatchPhotoPreviewDialog = document.querySelector("#dispatchPhotoPreviewDialog");
+const dispatchPhotoPreviewBody = document.querySelector("#dispatchPhotoPreviewBody");
+const dispatchPhotoPreviewTitle = document.querySelector("#dispatchPhotoPreviewTitle");
+const dispatchPhotoPreviewMeta = document.querySelector("#dispatchPhotoPreviewMeta");
 const revokeDispatchDialog = document.querySelector("#revokeDispatchDialog");
 const dispatchSelectAll = document.querySelector("#dispatchSelectAll");
 const dispatchPageSizeSelect = document.querySelector("#dispatchPageSize");
@@ -981,6 +1054,7 @@ function getDueInfo(vehicle, warningDays = 30) {
     vehicle.commercialInsuranceExpiry,
     vehicle.mandatoryInsuranceExpiry,
     vehicle.cargoInsuranceExpiry,
+    vehicle.liabilityInsuranceExpiry,
   ].filter(Boolean);
   const inspectionDates = [
     vehicle.inspectionDue,
@@ -1228,73 +1302,136 @@ function renderVehicleDetailBase(vehicle) {
       `
     )
     .join("");
+}
 
-  const inspectionRecord = inspectionRecords.find((record) => record[0] === vehicle.plateNo);
-  const inspectionInputs = document.querySelectorAll("#inspectionModule .form-grid input");
-  const inspectionSelects = document.querySelectorAll("#inspectionModule .form-grid select");
-  if (inspectionRecord && inspectionInputs.length) {
-    inspectionInputs[0].value = inspectionRecord[0];
-    inspectionInputs[1].value = inspectionRecord[2];
-    inspectionInputs[2].value = inspectionRecord[3];
-    inspectionInputs[3].value = inspectionRecord[4];
-    inspectionInputs[4].value = inspectionRecord[5];
-    inspectionSelects[0].value = inspectionRecord[1];
-    inspectionSelects[1].value = inspectionRecord[6];
-  }
+function complianceRecordValue(record, fields, key) {
+  return Array.isArray(record) ? record[fields.indexOf(key)] : record?.[key];
+}
 
-  const insurancePolicy = insurancePolicies.find((policy) => policy[0] === vehicle.plateNo);
-  const insuranceInputs = document.querySelectorAll("#insuranceModule .form-grid input");
-  const insuranceSelect = document.querySelector("#insuranceModule .form-grid select");
-  if (insurancePolicy && insuranceInputs.length) {
-    insuranceInputs[0].value = insurancePolicy[0];
-    insuranceInputs[1].value = insurancePolicy[2];
-    insuranceInputs[2].value = insurancePolicy[3];
-    insuranceInputs[3].value = insurancePolicy[4];
-    insuranceInputs[4].value = insurancePolicy[5];
-    insuranceInputs[5].value = insurancePolicy[6];
-    insuranceInputs[6].value = insurancePolicy[7];
-    insuranceSelect.value = insurancePolicy[1];
-  }
+function complianceStatus(dateText, warningDays = 30) {
+  if (!dateText) return { key: "normal", label: "未设置", days: Infinity };
+  const days = daysUntil(dateText);
+  if (days < 0) return { key: "expired", label: "已过期", days };
+  if (days <= warningDays) return { key: "inspection", label: "即将到期", days };
+  return { key: "normal", label: "有效", days };
+}
+
+function renderComplianceStatus(dateText, warningDays = 30, type = "inspection") {
+  const status = complianceStatus(dateText, warningDays);
+  const statusKey = status.key === "inspection" ? type : status.key;
+  const detail = Number.isFinite(status.days) ? (status.days < 0 ? `逾期 ${Math.abs(status.days)} 天` : `剩余 ${status.days} 天`) : "";
+  return `<span class="due-pill ${statusKey}" title="${dashboardEscape(detail)}">${status.label}</span>`;
 }
 
 function renderInspectionRows(plateNo = selectedVehicle?.plateNo || "") {
-  const records = inspectionRecords.filter((record) => !plateNo || record[0] === plateNo);
-  document.querySelector("#inspectionBody").innerHTML = records
-    .map(
-      (record) => `
-        <tr>
-          <td>${record[0]}</td>
-          <td>${record[1]}</td>
-          <td>${record[2]}</td>
-          <td>${record[3]}</td>
-          <td>${record[4]}</td>
-          <td class="money">${formatMoney(record[5])}</td>
-          <td>${record[6]}</td>
-        </tr>
-      `
-    )
-    .join("");
+  const records = inspectionRecords
+    .filter((record) => !plateNo || complianceRecordValue(record, inspectionRecordFields, "plateNo") === plateNo)
+    .sort((left, right) => String(complianceRecordValue(right, inspectionRecordFields, "nextInspectionDue") || "").localeCompare(String(complianceRecordValue(left, inspectionRecordFields, "nextInspectionDue") || "")));
+  document.querySelector("#inspectionBody").innerHTML = records.length ? records.map((record) => {
+    const dueDate = complianceRecordValue(record, inspectionRecordFields, "nextInspectionDue");
+    const result = complianceRecordValue(record, inspectionRecordFields, "inspectionResult") || "—";
+    const status = complianceStatus(dueDate);
+    return `<tr class="${status.key === "expired" ? "expired-row" : status.key === "inspection" ? "warning-row" : ""}">
+      <td>${dashboardEscape(complianceRecordValue(record, inspectionRecordFields, "plateNo"))}</td>
+      <td>${dashboardEscape(complianceRecordValue(record, inspectionRecordFields, "inspectionType") || "—")}</td>
+      <td>${dashboardEscape(complianceRecordValue(record, inspectionRecordFields, "inspectionDate") || "—")}</td>
+      <td>${dashboardEscape(dueDate || "—")}</td>
+      <td>${dashboardEscape(complianceRecordValue(record, inspectionRecordFields, "inspectionAgency") || "—")}</td>
+      <td class="money">${formatMoney(complianceRecordValue(record, inspectionRecordFields, "inspectionFee") || 0)}</td>
+      <td>${dashboardEscape(result)}</td>
+      <td>${renderComplianceStatus(dueDate, 30, "inspection")}</td>
+    </tr>`;
+  }).join("") : '<tr><td class="no-data-cell" colspan="8">暂无审验记录</td></tr>';
 }
 
 function renderInsuranceRows(plateNo = selectedVehicle?.plateNo || "") {
-  const policies = insurancePolicies.filter((policy) => !plateNo || policy[0] === plateNo);
-  document.querySelector("#insuranceBody").innerHTML = policies
-    .map(
-      (policy) => `
-        <tr>
-          <td>${policy[0]}</td>
-          <td>${policy[1]}</td>
-          <td>${policy[2]}</td>
-          <td>${policy[3]}</td>
-          <td class="money">${formatMoney(policy[4])}</td>
-          <td>${policy[5]}</td>
-          <td class="money">${formatMoney(policy[6])}</td>
-          <td>${policy[7]}</td>
-          <td>${policy[8]}</td>
-        </tr>
-      `
-    )
-    .join("");
+  const policies = insurancePolicies
+    .filter((policy) => !plateNo || complianceRecordValue(policy, insurancePolicyFields, "plateNo") === plateNo)
+    .sort((left, right) => String(complianceRecordValue(right, insurancePolicyFields, "policyExpiry") || "").localeCompare(String(complianceRecordValue(left, insurancePolicyFields, "policyExpiry") || "")));
+  document.querySelector("#insuranceBody").innerHTML = policies.length ? policies.map((policy) => {
+    const dueDate = complianceRecordValue(policy, insurancePolicyFields, "policyExpiry");
+    const status = complianceStatus(dueDate);
+    const policyPeriod = complianceRecordValue(policy, insurancePolicyFields, "policyPeriod") || [policy.policyStart, policy.policyExpiry].filter(Boolean).join(" 至 ") || "—";
+    return `<tr class="${status.key === "expired" ? "expired-row" : status.key === "inspection" ? "warning-row" : ""}">
+      <td>${dashboardEscape(complianceRecordValue(policy, insurancePolicyFields, "plateNo"))}</td>
+      <td>${dashboardEscape(complianceRecordValue(policy, insurancePolicyFields, "insuranceType") || "—")}</td>
+      <td>${dashboardEscape(complianceRecordValue(policy, insurancePolicyFields, "insuranceCompany") || "—")}</td>
+      <td>${dashboardEscape(complianceRecordValue(policy, insurancePolicyFields, "policyNo") || "—")}</td>
+      <td class="money">${formatMoney(complianceRecordValue(policy, insurancePolicyFields, "insuredAmount") || 0)}</td>
+      <td>${dashboardEscape(dueDate || "—")}</td>
+      <td class="money">${formatMoney(complianceRecordValue(policy, insurancePolicyFields, "premium") || 0)}</td>
+      <td>${dashboardEscape(policyPeriod)}</td>
+      <td>${dashboardEscape(complianceRecordValue(policy, insurancePolicyFields, "attachment") || "—")}</td>
+      <td>${renderComplianceStatus(dueDate, 30, "insurance")}</td>
+    </tr>`;
+  }).join("") : '<tr><td class="no-data-cell" colspan="10">暂无保险记录</td></tr>';
+}
+
+function openInspectionRecordDialog() {
+  if (!selectedVehicle) return;
+  inspectionRecordForm.reset();
+  inspectionRecordForm.elements.plateNo.value = selectedVehicle.plateNo;
+  inspectionRecordDialog.showModal();
+}
+
+function openInsurancePolicyDialog() {
+  if (!selectedVehicle) return;
+  insurancePolicyForm.reset();
+  insurancePolicyForm.elements.plateNo.value = selectedVehicle.plateNo;
+  insurancePolicyDialog.showModal();
+}
+
+function closeVehicleRecordDialog(dialog, form) {
+  if (dialog.open) dialog.close();
+  form.reset();
+}
+
+function latestDate(currentDate, nextDate) {
+  return !currentDate || currentDate < nextDate ? nextDate : currentDate;
+}
+
+function addInspectionRecord(values) {
+  const record = {
+    ...values,
+    id: `INS-${Date.now()}`,
+    inspectionFee: Number(values.inspectionFee) || 0,
+  };
+  inspectionRecords.unshift(record);
+  const vehicle = vehicles.find((item) => item.plateNo === record.plateNo);
+  if (vehicle) {
+    vehicle.inspectionDue = latestDate(vehicle.inspectionDue, record.nextInspectionDue);
+    if (record.inspectionType === "营运证年审") vehicle.operatingPermitExpiry = latestDate(vehicle.operatingPermitExpiry, record.nextInspectionDue);
+  }
+  saveVehicleComplianceRecords();
+}
+
+function addInsurancePolicy(values) {
+  const period = `${values.policyStart} 至 ${values.policyExpiry}`;
+  const record = {
+    ...values,
+    id: `POL-${Date.now()}`,
+    insuredAmount: Number(values.insuredAmount) || 0,
+    premium: Number(values.premium) || 0,
+    policyPeriod: period,
+  };
+  insurancePolicies.unshift(record);
+  const vehicle = vehicles.find((item) => item.plateNo === record.plateNo);
+  if (vehicle) {
+    const insuranceFields = {
+      "交强险": ["mandatoryInsuranceNo", "mandatoryInsuranceExpiry"],
+      "商业险": ["commercialInsuranceNo", "commercialInsuranceExpiry"],
+      "货物险": ["cargoInsuranceNo", "cargoInsuranceExpiry"],
+      "承运人责任险": ["liabilityInsuranceNo", "liabilityInsuranceExpiry"],
+    }[record.insuranceType];
+    if (insuranceFields) {
+      const [numberField, expiryField] = insuranceFields;
+      vehicle[numberField] = record.policyNo;
+      vehicle[expiryField] = latestDate(vehicle[expiryField], record.policyExpiry);
+    }
+    const coverageDates = [vehicle.commercialInsuranceExpiry, vehicle.mandatoryInsuranceExpiry, vehicle.cargoInsuranceExpiry, vehicle.liabilityInsuranceExpiry].filter(Boolean);
+    vehicle.insuranceDue = coverageDates.length ? coverageDates.sort()[0] : latestDate(vehicle.insuranceDue, record.policyExpiry);
+  }
+  saveVehicleComplianceRecords();
 }
 
 function renderReminderRows(warningDays = 30, plateNo = selectedVehicle?.plateNo || "") {
@@ -1492,9 +1629,10 @@ function deleteVehicle(plateNo) {
   vehicles.splice(vehicleIndex, 1);
   [inspectionRecords, insurancePolicies].forEach((records) => {
     for (let index = records.length - 1; index >= 0; index -= 1) {
-      if (records[index][0] === plateNo) records.splice(index, 1);
+      if (complianceRecordValue(records[index], records === inspectionRecords ? inspectionRecordFields : insurancePolicyFields, "plateNo") === plateNo) records.splice(index, 1);
     }
   });
+  saveVehicleComplianceRecords();
 
   if (selectedVehicle?.plateNo === plateNo) selectedVehicle = vehicles[0];
   closeDeleteVehicleDialog();
@@ -2927,19 +3065,121 @@ function closeDispatchForm() {
   if (typeof refreshDispatchCustomSelects === "function") refreshDispatchCustomSelects();
 }
 
-function openDispatchDetail(dispatchId) {
+function dispatchPhotoMeta(photo) {
+  if (photo && typeof photo === "object") {
+    return {
+      id: photo.id || photo.photoId || photo.key || "",
+      name: photo.name || photo.fileName || photo.label || "现场图片",
+      src: photo.src || photo.url || photo.dataUrl || photo.preview || "",
+      note: photo.note || "节点上传图片",
+    };
+  }
+  const value = String(photo || "现场图片");
+  return { name: value, src: /^(data:image\/|https?:\/\/|blob:)/i.test(value) ? value : "", note: "节点上传图片" };
+}
+
+function renderDispatchPhotoGallery(item) {
+  const photos = Array.isArray(item.photoAttachments) && item.photoAttachments.length
+    ? item.photoAttachments
+    : Array.isArray(item.photos) ? item.photos : [];
+  if (!photos.length) return '<div class="dispatch-node-empty"><i data-lucide="image-off" aria-hidden="true"></i><span>该节点未上传图片</span></div>';
+  const cards = photos.map((photo) => {
+    const meta = dispatchPhotoMeta(photo);
+    const index = dispatchDetailPhotoTargets.push(meta) - 1;
+    const hasImage = Boolean(meta.src || meta.id);
+    return `<button class="dispatch-photo-card ${hasImage ? "has-preview" : "file-only"}" data-dispatch-photo-index="${index}" type="button"><span class="dispatch-photo-thumb">${meta.src ? `<img src="${dashboardEscape(meta.src)}" alt="${dashboardEscape(meta.name)}" />` : '<i data-lucide="image" aria-hidden="true"></i>'}</span><span class="dispatch-photo-copy"><strong>${dashboardEscape(meta.name)}</strong><small>${hasImage ? "点击查看原图" : "已上传文件 · 当前仅有文件名"}</small></span></button>`;
+  }).join("");
+  return `<div class="dispatch-photo-gallery">${cards}</div>`;
+}
+
+function getDispatchDetailSampleNodes(dispatch, taskType) {
+  const nodes = window.DispatchTaskNodes.get(taskType);
+  const currentIndex = dispatch.status === "已完成"
+    ? nodes.length - 1
+    : dispatch.status === "运输中"
+      ? Math.min(3, nodes.length - 1)
+      : ["已派单", "已接单"].includes(dispatch.status)
+        ? 0
+        : -1;
+  const photoSamples = [
+    { name: "集装箱现场样例.jpg", src: "https://images.unsplash.com/photo-1494412651409-8963ce7935a7?auto=format&fit=crop&w=960&q=80", note: "后台展示样例图片 · 非真实派单资料" },
+    { name: "运输现场样例.jpg", src: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=960&q=80", note: "后台展示样例图片 · 非真实派单资料" },
+  ];
+
+  return nodes.map((node, index) => {
+    const state = dispatch.status === "取消" ? "cancelled" : index < currentIndex ? "completed" : index === currentIndex ? "current" : "upcoming";
+    const hasSampleContent = state === "completed" || state === "current";
+    const photo = hasSampleContent && (index === 0 || index === currentIndex) ? photoSamples[index % photoSamples.length] : null;
+    return {
+      node,
+      state,
+      time: hasSampleContent ? `2026-04-12 ${String(8 + index).padStart(2, "0")}:${index % 2 ? "20" : "05"}` : "待执行",
+      desc: hasSampleContent ? `测试内容：${node}节点已完成，现场情况正常，作业记录已留存。` : "等待运输任务推进至此节点。",
+      photos: photo ? [photo] : [],
+    };
+  });
+}
+
+function renderDispatchDetailPage(dispatchId) {
   const dispatch = dispatches.find((item) => item.id === dispatchId);
-  if (!dispatch) return;
-  const waybill = typeof waybills !== "undefined" ? waybills.find((item) => item.waybillNo === dispatch.waybillNo) : null;
-  const taskType = dispatch.taskType || waybill?.taskType || "-";
-  document.querySelector("#dispatchDetailSubTitle").textContent = `${dispatch.waybillNo} / ${dispatch.routeName}`;
-  const timeline = dispatch.timeline.length ? dispatch.timeline.map((item, index) => `
-    <div class="timeline-item ${index === dispatch.timeline.length - 1 ? "current" : ""}"><span class="timeline-dot"></span><div class="timeline-main"><strong>${item.node}</strong><time>${item.time}</time><p>${item.desc}</p>${item.photos.length ? `<div class="photo-list">${item.photos.map((photo) => `<span class="photo-chip">▧ ${photo}</span>`).join("")}</div>` : ""}</div></div>`).join("") : '<div class="empty-detail">暂无节点上报记录</div>';
-  document.querySelector("#dispatchDetailContent").innerHTML = `
-    <div class="dispatch-detail-summary"><div><span>派单状态</span><strong class="dispatch-status ${getDispatchStatusClass(dispatch.status)}">${dispatch.status}</strong></div><div><span>当前节点</span><strong>${dispatch.currentNode}</strong></div><div><span>司机 / 车辆</span><strong>${dispatch.driverName} / ${dispatch.vehicleId || "待分配"}</strong></div><div><span>消息推送</span><strong class="push-success">${dispatch.pushed ? "已推送小程序" : "待推送"}</strong></div></div>
-    <div class="dispatch-info-grid"><div><span>运单号</span><strong>${dispatch.waybillNo || "-"}</strong></div><div><span>任务类型</span><strong>${taskType}</strong></div><div><span>派单方式</span><strong>${{ auto: "自动派单", manual: "手动派单", pending: "待分配" }[getDispatchMode(dispatch)]}</strong></div><div><span>起运地</span><strong>${dispatch.origin}</strong></div><div><span>目的地</span><strong>${dispatch.destination}</strong></div><div><span>装卸地址</span><strong>${dispatch.loadAddress || dispatch.origin}</strong></div><div><span>箱信息</span><strong>${dispatch.boxes}</strong></div><div><span>预估收入 / 司机提成</span><strong>${formatMoney(dispatch.estimatedRevenue)} / ${formatMoney(dispatch.commission)}</strong></div><div><span>联系电话</span><strong>${dispatch.phone}</strong></div><div><span>派单备注</span><strong>${dispatch.note || "-"}</strong></div></div>
-    <section class="timeline-section"><div class="detail-section-title"><strong>运输节点时间线</strong><span>司机小程序最新上报记录</span></div><div class="timeline">${timeline}</div></section>`;
-  dispatchDetailDialog.showModal();
+  if (!dispatch || !dispatchDetailPageContent) return;
+  const waybill = waybills.find((item) => item.waybillNo === dispatch.waybillNo);
+  const taskType = window.DispatchTaskNodes.resolve(dispatch.taskType || waybill?.taskType);
+  const modeLabel = { auto: "自动派单", manual: "手动派单", pending: "待分配" }[getDispatchMode(dispatch)] || "待分配";
+  const timeline = getDispatchDetailSampleNodes(dispatch, taskType);
+  const currentNode = timeline.find((item) => item.state === "current")?.node || (dispatch.status === "已完成" ? timeline.at(-1)?.node : "待执行");
+  dispatchDetailPhotoTargets = [];
+  dispatchDetailPageSubtitle.textContent = `${dispatch.waybillNo || "-"} · ${dispatch.routeName || "未指定线路"}`;
+  if (dispatchDetailEditBtn) dispatchDetailEditBtn.hidden = !["待派单", "已派单", "运输中"].includes(dispatch.status);
+  dispatchDetailPageContent.innerHTML = `
+    <section class="dispatch-detail-hero">
+      <div class="dispatch-detail-hero-main"><span class="dispatch-detail-kicker">派单编号 ${dashboardEscape(dispatch.id || "-")}</span><div><h3>${dashboardEscape(dispatch.waybillNo || "-")}</h3><span class="dispatch-status ${getDispatchStatusClass(dispatch.status)}">${dashboardEscape(dispatch.status || "待派单")}</span></div><p>${dashboardEscape(dispatch.routeName || "未指定线路")} · ${dashboardEscape(taskType)}</p></div>
+      <div class="dispatch-detail-hero-metrics"><div><span>当前节点</span><strong>${dashboardEscape(currentNode)}</strong></div><div><span>派单时间</span><strong>${dashboardEscape(dispatch.dispatchTime || "-")}</strong></div><div><span>消息推送</span><strong class="push-success">${dispatch.pushed ? "已推送小程序" : "待推送"}</strong></div></div>
+    </section>
+    <div class="dispatch-detail-page-grid">
+      <div class="dispatch-detail-page-main">
+        <section class="dispatch-detail-panel"><div class="dispatch-detail-panel-title"><i data-lucide="file-text" aria-hidden="true"></i><div><h3>运单信息</h3><span>任务与线路基础资料</span></div></div><div class="dispatch-detail-field-grid"><div><span>运单号</span><strong>${dashboardEscape(dispatch.waybillNo || "-")}</strong></div><div><span>计划任务编号</span><strong>${dashboardEscape(dispatch.planTaskNo || waybill?.planTaskNo || "-")}</strong></div><div><span>客户 / 项目</span><strong>${dashboardEscape([dispatch.customerName, dispatch.projectName].filter(Boolean).join(" / ") || "-")}</strong></div><div><span>任务类型</span><strong>${dashboardEscape(taskType)}</strong></div><div><span>派单方式</span><strong>${modeLabel}</strong></div><div><span>箱信息</span><strong>${dashboardEscape(dispatch.boxes || formatWaybillBoxes(waybill || {}) || "-")}</strong></div><div class="wide"><span>装卸地址</span><strong>${dashboardEscape(dispatch.loadAddress || dispatch.origin || "-")}</strong></div><div class="wide"><span>派单备注</span><strong>${dashboardEscape(dispatch.note || "-")}</strong></div></div></section>
+        <section class="dispatch-detail-panel"><div class="dispatch-detail-panel-title"><i data-lucide="truck" aria-hidden="true"></i><div><h3>运力与结算</h3><span>司机、车辆及本次派单金额</span></div></div><div class="dispatch-detail-field-grid"><div><span>司机</span><strong>${dashboardEscape(dispatch.driverName || "待分配")}</strong></div><div><span>联系电话</span><strong>${dashboardEscape(dispatch.phone || "-")}</strong></div><div><span>车牌</span><strong>${dashboardEscape(dispatch.vehicleId || "待分配")}</strong></div><div><span>车型 / 挂车</span><strong>${dashboardEscape([getDispatchVehicleType(dispatch), dispatch.trailerId].filter(Boolean).join(" / ") || "-")}</strong></div><div><span>预估收入</span><strong class="money-value">${formatMoney(dispatch.estimatedRevenue || 0)}</strong></div><div><span>司机提成</span><strong>${formatMoney(dispatch.commission || 0)}</strong></div></div></section>
+        <section class="dispatch-detail-panel dispatch-route-panel"><div class="dispatch-detail-panel-title"><i data-lucide="route" aria-hidden="true"></i><div><h3>运输路线</h3><span>起运地与目的地</span></div></div><div class="dispatch-route-line"><div><span>起运地</span><strong>${dashboardEscape(dispatch.origin || "-")}</strong></div><i data-lucide="arrow-right" aria-hidden="true"></i><div><span>目的地</span><strong>${dashboardEscape(dispatch.destination || "-")}</strong></div></div></section>
+      </div>
+      <aside class="dispatch-detail-page-side"><section class="dispatch-detail-panel dispatch-timeline-panel"><div class="dispatch-detail-panel-title"><i data-lucide="history" aria-hidden="true"></i><div><h3>运输节点</h3><span>${timeline.length} 个任务节点 · 后台测试数据</span></div></div><div class="dispatch-detail-timeline">${timeline.map((item) => `<article class="dispatch-node-card ${item.state}"><span class="dispatch-node-dot" aria-hidden="true"></span><div class="dispatch-node-card-head"><div><strong>${dashboardEscape(item.node)}</strong><span>${dashboardEscape(item.time)}</span></div><em>${item.state === "current" ? "进行中" : item.state === "completed" ? "已完成" : item.state === "cancelled" ? "已取消" : "待执行"}</em></div><p>${dashboardEscape(item.desc)}</p>${item.photos.length ? renderDispatchPhotoGallery(item) : ""}</article>`).join("")}</div></section></aside>
+    </div>`;
+  window.lucide?.createIcons();
+}
+
+function openDispatchDetail(dispatchId) {
+  if (!dispatches.some((item) => item.id === dispatchId)) return;
+  currentDispatchDetailId = dispatchId;
+  switchPage("dispatch-detail");
+  window.scrollTo?.({ top: 0, behavior: "smooth" });
+}
+
+async function openDispatchPhotoPreview(index) {
+  const target = dispatchDetailPhotoTargets[Number(index)];
+  if (!target || !dispatchPhotoPreviewDialog) return;
+  let previewSrc = target.src;
+  if (dispatchPhotoPreviewObjectUrl) {
+    URL.revokeObjectURL(dispatchPhotoPreviewObjectUrl);
+    dispatchPhotoPreviewObjectUrl = "";
+  }
+  if (!previewSrc && target.id && window.DispatchStore?.getPhoto) {
+    try {
+      const blob = await window.DispatchStore.getPhoto(target.id);
+      if (blob) {
+        dispatchPhotoPreviewObjectUrl = URL.createObjectURL(blob);
+        previewSrc = dispatchPhotoPreviewObjectUrl;
+      }
+    } catch (error) {
+      console.warn("派单图片读取失败。", error);
+    }
+  }
+  dispatchPhotoPreviewTitle.textContent = target.name;
+  dispatchPhotoPreviewMeta.textContent = target.note || "节点上传图片";
+  dispatchPhotoPreviewBody.innerHTML = previewSrc
+    ? `<img src="${dashboardEscape(previewSrc)}" alt="${dashboardEscape(target.name)}" />`
+    : `<div class="dispatch-photo-preview-empty"><i data-lucide="image-off" aria-hidden="true"></i><strong>暂无可预览的图片内容</strong><span>系统当前仅收到文件名：${dashboardEscape(target.name)}</span></div>`;
+  window.lucide?.createIcons();
+  dispatchPhotoPreviewDialog.showModal();
 }
 
 function requestRevokeDispatch(dispatchId) {
@@ -3770,6 +4010,7 @@ function closeFinanceExpenseDialog() {
 
 function switchPage(pageName) {
   const meta = pageMeta[pageName] || pageMeta.waybill;
+  activePageName = pageName;
   const activeNavPage = meta.navPage || pageName;
   pageTitle.textContent = meta.title;
   pageKicker.textContent = meta.kicker;
@@ -3809,6 +4050,9 @@ function switchPage(pageName) {
   }
   if (meta.view === "dispatch") {
     renderDispatchPage(getFilteredDispatches());
+  }
+  if (meta.view === "dispatchDetail") {
+    renderDispatchDetailPage(currentDispatchDetailId);
   }
   if (meta.view === "dispatchManagement") {
     window.DispatchManagement?.render();
@@ -4724,9 +4968,12 @@ vehicleForm.addEventListener("submit", (event) => {
     if (oldPlateNo !== data.plateNo) {
       [inspectionRecords, insurancePolicies].forEach((records) => {
         records.forEach((record) => {
-          if (record[0] === oldPlateNo) record[0] = data.plateNo;
+          if (complianceRecordValue(record, records === inspectionRecords ? inspectionRecordFields : insurancePolicyFields, "plateNo") !== oldPlateNo) return;
+          if (Array.isArray(record)) record[0] = data.plateNo;
+          else record.plateNo = data.plateNo;
         });
       });
+      saveVehicleComplianceRecords();
     }
     selectedVehicle = existingVehicle;
   } else {
@@ -4746,6 +4993,57 @@ document.querySelector("#vehicleBody").addEventListener("click", (event) => {
   if (detailButton) openVehicleDetail(detailButton.dataset.detailPlate);
   if (editButton) openVehicleForm("edit", editButton.dataset.editPlate);
   if (deleteButton) requestDeleteVehicle(deleteButton.dataset.deletePlate);
+});
+
+document.querySelector("#addInspectionRecordBtn").addEventListener("click", openInspectionRecordDialog);
+document.querySelector("#addInsurancePolicyBtn").addEventListener("click", openInsurancePolicyDialog);
+
+inspectionRecordForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addInspectionRecord(Object.fromEntries(new FormData(inspectionRecordForm).entries()));
+  closeVehicleRecordDialog(inspectionRecordDialog, inspectionRecordForm);
+  renderVehiclePage(getFilteredVehicles(), getWarningDays());
+});
+
+insurancePolicyForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(insurancePolicyForm).entries());
+  const expiryField = insurancePolicyForm.elements.policyExpiry;
+  expiryField.setCustomValidity(values.policyExpiry < values.policyStart ? "保险到期日期不能早于生效日期。" : "");
+  if (!insurancePolicyForm.reportValidity()) return;
+  values.attachment = window.AttachmentPicker?.getValue(insurancePolicyForm.elements.attachment) || "";
+  addInsurancePolicy(values);
+  closeVehicleRecordDialog(insurancePolicyDialog, insurancePolicyForm);
+  renderVehiclePage(getFilteredVehicles(), getWarningDays());
+});
+
+insurancePolicyForm.elements.policyStart.addEventListener("change", () => {
+  const { policyStart, policyExpiry } = insurancePolicyForm.elements;
+  policyExpiry.setCustomValidity(policyExpiry.value && policyExpiry.value < policyStart.value ? "保险到期日期不能早于生效日期。" : "");
+});
+insurancePolicyForm.elements.policyExpiry.addEventListener("change", () => {
+  const { policyStart, policyExpiry } = insurancePolicyForm.elements;
+  policyExpiry.setCustomValidity(policyExpiry.value && policyExpiry.value < policyStart.value ? "保险到期日期不能早于生效日期。" : "");
+});
+
+document.querySelectorAll("[data-close-record-dialog]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const dialog = button.closest(".vehicle-record-dialog");
+    closeVehicleRecordDialog(dialog, dialog === inspectionRecordDialog ? inspectionRecordForm : insurancePolicyForm);
+  });
+});
+
+[inspectionRecordDialog, insurancePolicyDialog].forEach((dialog) => {
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeVehicleRecordDialog(dialog, dialog === inspectionRecordDialog ? inspectionRecordForm : insurancePolicyForm);
+  });
+  dialog.addEventListener("click", (event) => {
+    const bounds = dialog.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+      closeVehicleRecordDialog(dialog, dialog === inspectionRecordDialog ? inspectionRecordForm : insurancePolicyForm);
+    }
+  });
 });
 
 document.querySelector("#cancelDeleteVehicleBtn").addEventListener("click", () => {
@@ -5343,6 +5641,7 @@ dispatchForm.addEventListener("submit", (event) => {
     renderRows(filterRows(new FormData(queryForm)));
     closeDispatchForm();
     renderDispatchPage(getFilteredDispatches());
+    if (typeof activePageName !== "undefined" && activePageName === "dispatch-detail" && typeof renderDispatchDetailPage === "function") renderDispatchDetailPage(currentDispatchDetailId);
     renderDriverPage(getFilteredDrivers());
     renderDashboard();
     return;
@@ -5501,6 +5800,17 @@ document.querySelector("#batchDispatchStatusBtn").addEventListener("click", () =
 document.querySelector("#closeDispatchDetailBtn").addEventListener("click", () => {
   if (dispatchDetailDialog.open) dispatchDetailDialog.close();
 });
+dispatchDetailBackBtn?.addEventListener("click", () => switchPage("dispatch-list"));
+dispatchDetailEditBtn?.addEventListener("click", () => {
+  if (currentDispatchDetailId) openDispatchEdit(currentDispatchDetailId);
+});
+dispatchDetailPageContent?.addEventListener("click", (event) => {
+  const photo = event.target.closest("[data-dispatch-photo-index]");
+  if (photo) openDispatchPhotoPreview(photo.dataset.dispatchPhotoIndex);
+});
+document.querySelector("#closeDispatchPhotoPreviewBtn")?.addEventListener("click", () => {
+  if (dispatchPhotoPreviewDialog?.open) dispatchPhotoPreviewDialog.close();
+});
 document.querySelector("#cancelRevokeDispatchBtn").addEventListener("click", closeRevokeDispatchDialog);
 document.querySelector("#confirmRevokeDispatchBtn").addEventListener("click", () => {
   if (deletingDispatchId) revokeDispatch(deletingDispatchId);
@@ -5513,6 +5823,14 @@ dispatchDialog.addEventListener("cancel", (event) => {
 dispatchDetailDialog.addEventListener("cancel", (event) => {
   event.preventDefault();
   dispatchDetailDialog.close();
+});
+dispatchPhotoPreviewDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  dispatchPhotoPreviewDialog.close();
+});
+dispatchPhotoPreviewDialog?.addEventListener("close", () => {
+  if (dispatchPhotoPreviewObjectUrl) URL.revokeObjectURL(dispatchPhotoPreviewObjectUrl);
+  dispatchPhotoPreviewObjectUrl = "";
 });
 revokeDispatchDialog.addEventListener("cancel", (event) => {
   event.preventDefault();
@@ -5540,6 +5858,7 @@ window.addEventListener("storage", (event) => {
       renderDriverPage(getFilteredDrivers());
       renderRoutePage(getFilteredRoutes());
       renderDispatchPage(getFilteredDispatches());
+      if (activePageName === "dispatch-detail") renderDispatchDetailPage(currentDispatchDetailId);
       renderCapacityPage(getFilteredCapacityRecords());
       renderDashboard();
     }
@@ -5560,6 +5879,7 @@ window.addEventListener("storage", (event) => {
   window.DispatchStore.replace(dispatches, window.DispatchStore.load(dispatchSeed));
   syncDriverOperationalStates();
   renderDispatchPage(getFilteredDispatches());
+  if (activePageName === "dispatch-detail") renderDispatchDetailPage(currentDispatchDetailId);
   renderDriverPage(getFilteredDrivers());
   renderDashboard();
   window.AutoDispatchManager?.refresh();
@@ -5577,6 +5897,7 @@ window.addEventListener("message", (event) => {
     syncDriverOperationalStates();
     saveDispatches();
     renderDispatchPage(getFilteredDispatches());
+    if (activePageName === "dispatch-detail") renderDispatchDetailPage(currentDispatchDetailId);
     renderDriverPage(getFilteredDrivers());
     renderDashboard();
     window.AutoDispatchManager?.refresh();

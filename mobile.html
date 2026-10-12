@@ -197,14 +197,22 @@
         <form id="progressForm">
           <div class="sheet-handle"></div>
           <header><div><strong id="progressTitle">更新运输节点</strong><span id="progressHint">操作后将实时同步至调度后台</span></div><button class="sheet-close" type="button">×</button></header>
-          <div class="next-node-card"><span>即将更新为</span><strong id="nextNodeText">已提货</strong></div>
+          <div class="next-node-card"><span>本次提交节点</span><strong id="nextNodeText">已提货</strong></div>
           <label class="sheet-field">现场说明<textarea name="remark" rows="3" placeholder="填写现场情况或异常说明"></textarea></label>
-          <label class="upload-box">
-            <input name="photos" type="file" accept="image/*" multiple />
-            <span class="upload-icon">＋</span><strong>上传现场照片</strong><small id="uploadHint">支持从相册选择或拍照</small>
-          </label>
-          <button class="primary-action" type="submit">确认上报</button>
+          <section class="photo-requirements" id="photoRequirements" aria-live="polite" hidden>
+            <div class="photo-requirements-heading"><strong id="photoRequirementsTitle">拍照要求</strong><span id="photoRequirementsCount">0/0</span></div>
+            <div class="photo-slot-list" id="photoSlotList"></div>
+            <p class="photo-requirements-hint" id="photoRequirementsHint"></p>
+          </section>
+          <button class="primary-action" type="submit">确认提交</button>
         </form>
+      </dialog>
+
+      <dialog class="photo-viewer-dialog" id="photoViewerDialog" aria-labelledby="photoViewerTitle">
+        <div class="photo-viewer-panel">
+          <header><strong id="photoViewerTitle">节点照片</strong><button class="sheet-close" id="photoViewerClose" type="button" aria-label="关闭图片预览">×</button></header>
+          <div class="photo-viewer-grid" id="photoViewerGrid" aria-live="polite"></div>
+        </div>
       </dialog>
 
       <dialog class="bottom-sheet compact-sheet" id="driverDialog">
@@ -217,6 +225,7 @@
     </div>
 
     <script src="dispatch-store.js"></script>
+    <script src="dispatch-task-nodes.js"></script>
     <script src="mobile.js"></script>
   </body>
 </html>

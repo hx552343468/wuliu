@@ -109,18 +109,6 @@ svg { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2
 .focus-row small { margin-top: 5px; color: #999cad; font-size: 9px; }
 .focus-row > em { border-radius: 10px; padding: 5px 8px; color: #cc7b28; background: #fff4e8; font-size: 9px; font-style: normal; white-space: nowrap; }
 
-.mobile-route-load { padding: 4px 17px 10px; }
-.route-load-item { display: grid; grid-template-columns: minmax(0,1fr) 95px; gap: 12px; min-height: 62px; align-items: center; border-bottom: 1px solid #f0f0f5; }
-.route-load-item:last-child { border-bottom: 0; }
-.route-load-item strong,
-.route-load-item small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.route-load-item strong { color: #41445e; font-size: 11px; }
-.route-load-item small { margin-top: 5px; color: #9b9dae; font-size: 8px; }
-.route-progress i { display: block; height: 5px; overflow: hidden; border-radius: 3px; background: #eeeff5; }
-.route-progress i b { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
-.route-progress span { display: block; margin-top: 5px; color: #8c8fa2; font-size: 8px; text-align: right; }
-.route-progress.warning i b { background: var(--warning); }
-
 .messages-view { padding-top: 8px; }
 .segment-tabs { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; border: 1px solid rgba(255,255,255,.95); border-radius: 22px; padding: 4px; background: rgba(255,255,255,.62); }
 .segment-tabs button { height: 36px; border: 0; border-radius: 18px; background: transparent; color: #85879a; font-size: 11px; }

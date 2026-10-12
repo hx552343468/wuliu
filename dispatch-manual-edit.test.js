@@ -27,6 +27,7 @@ const context = vm.createContext({
   waybills: [waybill],
   drivers: [nextDriver],
   vehicles: [{ plateNo: "浙B-002", vehicleState: "在用" }],
+  activePageName: "vehicle-dashboard",
   availableOwnDrivers: () => [nextDriver],
   getRouteForWaybill: () => route,
   formatWaybillBoxes: () => "箱 / 40HQ",

@@ -1,3 +1,25 @@
+const DEFAULT_TASK_TYPE = window.DispatchTaskNodes.defaultType;
+const TASK_NODE_SEQUENCES = window.DispatchTaskNodes.sequences;
+const TASK_NODE_PHOTO_REQUIREMENTS = Object.freeze({
+  "提空装货": {
+    已提空: ["左侧箱体", "右侧箱体", "前侧箱体", "后侧箱体", "空箱全开门", "临封照片"],
+    完成装货: ["装货进度 1/4", "装货进度 1/2", "装货进度 3/4", "装货完成全开门", "装货完成半关门", "全关门及签封号"],
+    重箱进站: ["铁路临封照片 1/3", "铁路临封照片 2/3", "铁路临封照片 3/3"],
+  },
+  "提重送货": {
+    已提重: ["全关门箱门照片", "封号照片"],
+    完成卸货: ["卸货过程照片 1/3", "卸货过程照片 2/3", "卸货过程照片 3/3"],
+    空箱进站: ["空箱照片 1/5", "空箱照片 2/5", "空箱照片 3/5", "空箱照片 4/5", "空箱照片 5/5"],
+  },
+  "排空箱（A→B）": {
+    已提空: ["左侧箱体", "右侧箱体", "前侧箱体", "后侧箱体", "空箱全开门", "临封照片"],
+  },
+  "排重箱（A→B）": {
+    已提重: ["全关门箱门照片", "封条照片"],
+    箱进站: ["铁路临封照片 1/3", "铁路临封照片 2/3", "铁路临封照片 3/3"],
+  },
+});
+
 const dispatchSeed = [
   { id: "PD-1001", waybillNo: "WB20260916001", orderDate: "2026-09-16", routeId: "XL-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", dispatchTime: "2026-09-16 08:35", driverId: "SJ-1001", driverName: "王海", phone: "13800008881", vehicleId: "浙B·K7812", status: "运输中", currentNode: "在途", boxes: "TCLU8374621 / 40HQ", estimatedRevenue: 2860, commission: 420, note: "上午装柜", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 08:35", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已提货", time: "2026-09-16 10:12", desc: "司机已完成提货，上传装柜现场照片", photos: ["装柜现场-001.jpg"] }, { node: "在途", time: "2026-09-16 11:05", desc: "车辆驶离装货地，运输中", photos: ["运输途中-001.jpg"] }] },
   { id: "PD-1002", waybillNo: "WB20260916002", orderDate: "2026-09-16", routeId: "XL-002", routeName: "洋山港至昆山保税区", origin: "上海洋山港", destination: "昆山综合保税区", dispatchTime: "2026-09-16 09:10", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "已派单", currentNode: "待提货", boxes: "MSKU4920183 / MSKU4920184", estimatedRevenue: 3520, commission: 563.2, note: "双拖作业，按现场指引进港", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 09:10", desc: "派单已推送至司机微信小程序", photos: [] }] },
@@ -9,6 +31,10 @@ const dispatchSeed = [
   { id: "PD-1008", waybillNo: "WB20260920008", orderDate: "2026-09-20", routeId: "XL-007", routeName: "芦潮港至嘉兴综保区", origin: "上海芦潮港集装箱中心", destination: "嘉兴综合保税区", dispatchTime: "2026-09-20 13:30", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "运输中", currentNode: "在途", boxes: "CAIU8172054 / 40HQ", estimatedRevenue: 2980, commission: 450, note: "预计 17:30 前送达", pushed: true, acceptedAt: "2026-09-20 13:42", timeline: [{ node: "已派单", time: "2026-09-20 13:30", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-09-20 13:42", desc: "司机已确认接单", photos: [] }, { node: "已提货", time: "2026-09-20 14:25", desc: "已完成提货并核对箱封", photos: ["提货现场-008.jpg"] }, { node: "在途", time: "2026-09-20 14:48", desc: "车辆已发车，运输途中", photos: [] }] },
   { id: "PD-1009", waybillNo: "WB20260919009", orderDate: "2026-09-19", routeId: "XL-008", routeName: "洋山港至松江仓", origin: "洋山深水港三期码头", destination: "上海松江出口加工区", dispatchTime: "2026-09-19 08:10", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "已完成", currentNode: "已送达", boxes: "TRHU6721843 / 20GP", estimatedRevenue: 2450, commission: 380, note: "凭预约号入仓", pushed: true, acceptedAt: "2026-09-19 08:16", timeline: [{ node: "已派单", time: "2026-09-19 08:10", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-09-19 08:16", desc: "司机已确认接单", photos: [] }, { node: "已提货", time: "2026-09-19 09:02", desc: "已完成提货", photos: ["提货现场-009.jpg"] }, { node: "已送达", time: "2026-09-19 11:46", desc: "货物已安全送达目的地", photos: ["送达凭证-009.jpg"] }] },
   { id: "PD-1010", waybillNo: "WB20260918010", orderDate: "2026-09-18", routeId: "XL-009", routeName: "外高桥至昆山陆家仓", origin: "上海外高桥港区五期", destination: "昆山陆家物流园", dispatchTime: "2026-09-18 15:20", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "取消", currentNode: "取消", boxes: "GESU5091872 / 40GP", estimatedRevenue: 2760, commission: 410, note: "客户调整装货计划，调度取消", pushed: true, acceptedAt: "2026-09-18 15:28", timeline: [{ node: "已派单", time: "2026-09-18 15:20", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-09-18 15:28", desc: "司机已确认接单", photos: [] }, { node: "取消", time: "2026-09-18 15:50", desc: "客户调整计划，调度取消运单", photos: [] }] },
+  { id: "PD-1011", waybillNo: "WB20261012011", taskType: "提空装货", orderDate: "2026-10-12", routeId: "XL-010", routeName: "外高桥港至嘉定仓", origin: "上海外高桥港区", destination: "上海嘉定物流园", dispatchTime: "2026-10-12 08:10", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "运输中", currentNode: "完成装货", boxes: "TGHU8317205 / 40HQ", estimatedRevenue: 3120, commission: 468, note: "装货照片已齐，准备重箱进站", pushed: true, acceptedAt: "2026-10-12 08:16", timeline: [{ node: "已派单", time: "2026-10-12 08:10", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-10-12 08:16", desc: "司机已确认接单", photos: [] }, { node: "已提空", time: "2026-10-12 09:02", desc: "已提取空箱", photos: [] }, { node: "空箱在途", time: "2026-10-12 09:35", desc: "空箱运往客户仓库", photos: [] }, { node: "到达仓库", time: "2026-10-12 10:12", desc: "车辆到达客户仓库", photos: [] }, { node: "完成装货", time: "2026-10-12 11:20", desc: "仓库装货完成", photos: [] }] },
+  { id: "PD-1012", waybillNo: "WB20261012012", taskType: "排空箱（A→B）", orderDate: "2026-10-12", routeId: "XL-011", routeName: "洋山港至临港堆场", origin: "上海洋山港", destination: "上海临港堆场", dispatchTime: "2026-10-12 09:05", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "运输中", currentNode: "已提空", boxes: "UACU4126801 / 20GP", estimatedRevenue: 2180, commission: 327, note: "空箱已提取，直接送往 B 地", pushed: true, acceptedAt: "2026-10-12 09:11", timeline: [{ node: "已派单", time: "2026-10-12 09:05", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-10-12 09:11", desc: "司机已确认接单", photos: [] }, { node: "已提空", time: "2026-10-12 10:02", desc: "空箱已提取，箱体照片已上传", photos: [] }] },
+  { id: "PD-1013", waybillNo: "WB20261012013", taskType: "排重箱（A→B）", orderDate: "2026-10-12", routeId: "XL-012", routeName: "宁波北仑港至梅山码头", origin: "宁波北仑港区", destination: "宁波梅山码头", dispatchTime: "2026-10-12 07:40", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "运输中", currentNode: "重箱在途", boxes: "FCIU7350192 / 40HQ", estimatedRevenue: 2680, commission: 402, note: "重箱在途，进站时需上传铁路临封照片", pushed: true, acceptedAt: "2026-10-12 07:48", timeline: [{ node: "已派单", time: "2026-10-12 07:40", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-10-12 07:48", desc: "司机已确认接单", photos: [] }, { node: "已提重", time: "2026-10-12 08:26", desc: "重箱已提取，关门照与封号照已上传", photos: [] }, { node: "重箱在途", time: "2026-10-12 08:50", desc: "重箱驶往铁路中心", photos: [] }] },
+  { id: "PD-1014", waybillNo: "WB20261012014", taskType: "提重送货", orderDate: "2026-10-12", routeId: "XL-013", routeName: "洋山港至松江仓", origin: "上海洋山深水港", destination: "上海松江出口加工区", dispatchTime: "2026-10-12 06:50", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "运输中", currentNode: "空箱在途", boxes: "TCLU6019237 / 20GP", estimatedRevenue: 2540, commission: 381, note: "空箱已返程，进站需上传 5 张空箱照片", pushed: true, acceptedAt: "2026-10-12 06:56", timeline: [{ node: "已派单", time: "2026-10-12 06:50", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已接单", time: "2026-10-12 06:56", desc: "司机已确认接单", photos: [] }, { node: "已提重", time: "2026-10-12 07:32", desc: "已提取重箱，关门照和封号照已上传", photos: [] }, { node: "重箱在途", time: "2026-10-12 08:05", desc: "重箱运往客户仓库", photos: [] }, { node: "到达仓库", time: "2026-10-12 08:46", desc: "车辆到达仓库", photos: [] }, { node: "完成卸货", time: "2026-10-12 10:14", desc: "卸货完成，过程照片已上传", photos: [] }, { node: "空箱在途", time: "2026-10-12 10:35", desc: "空箱驶往铁路中心", photos: [] }] },
 ];
 
 const drivers = {
@@ -26,15 +52,19 @@ const vehicles = {
 };
 
 const waybillMeta = {
-  WB20260916001: { customer: "宁波海拓供应链有限公司", billNo: "BL-NB-26091601", containerType: "40HQ", sealNo: "SEAL831942", loadAddress: "宁波市北仑区港兴路 88 号" },
-  WB20260916002: { customer: "上海临港国际物流有限公司", billNo: "BL-SH-26091622", containerType: "双拖", sealNo: "SEAL440182 / SEAL440183", loadAddress: "上海洋山深水港四期码头" },
-  WB20260916003: { customer: "杭州华远进出口有限公司", billNo: "BL-HZ-26091508", containerType: "40GP", sealNo: "SEAL650273", loadAddress: "杭州市萧山区临浦物流园 6 号库" },
-  WB20260916004: { customer: "苏州园区保税物流中心", billNo: "BL-SZ-26091411", containerType: "20GP", sealNo: "SEAL308764", loadAddress: "苏州工业园区现代大道 168 号" },
-  WB20260921006: { customer: "上海盛达国际货运有限公司", billNo: "BL-SH-26092106", containerType: "40HQ", sealNo: "SEAL763105", loadAddress: "上海市浦东新区外高桥港区海通路 88 号" },
-  WB20260921007: { customer: "临港海运供应链有限公司", billNo: "BL-SH-26092107", containerType: "20GP", sealNo: "SEAL921467", loadAddress: "上海市浦东新区临港大道 1555 号" },
-  WB20260920008: { customer: "嘉兴联运供应链有限公司", billNo: "BL-SH-26092008", containerType: "40HQ", sealNo: "SEAL817205", loadAddress: "上海市浦东新区芦潮港路 1588 号" },
-  WB20260919009: { customer: "上海松江国际物流有限公司", billNo: "BL-SH-26091909", containerType: "20GP", sealNo: "SEAL672184", loadAddress: "上海市浦东新区洋山港同汇路 66 号" },
-  WB20260918010: { customer: "昆山陆港供应链有限公司", billNo: "BL-SH-26091810", containerType: "40GP", sealNo: "SEAL509187", loadAddress: "上海市浦东新区外高桥港区洲海路 999 号" },
+  WB20260916001: { taskType: "提空装货", customer: "宁波海拓供应链有限公司", billNo: "BL-NB-26091601", containerType: "40HQ", sealNo: "SEAL831942", loadAddress: "宁波市北仑区港兴路 88 号" },
+  WB20260916002: { taskType: "提重送货", customer: "上海临港国际物流有限公司", billNo: "BL-SH-26091622", containerType: "双拖", sealNo: "SEAL440182 / SEAL440183", loadAddress: "上海洋山深水港四期码头" },
+  WB20260916003: { taskType: "排空箱（A→B）", customer: "杭州华远进出口有限公司", billNo: "BL-HZ-26091508", containerType: "40GP", sealNo: "SEAL650273", loadAddress: "杭州市萧山区临浦物流园 6 号库" },
+  WB20260916004: { taskType: "排重箱（A→B）", customer: "苏州园区保税物流中心", billNo: "BL-SZ-26091411", containerType: "20GP", sealNo: "SEAL308764", loadAddress: "苏州工业园区现代大道 168 号" },
+  WB20260921006: { taskType: "提空装货", customer: "上海盛达国际货运有限公司", billNo: "BL-SH-26092106", containerType: "40HQ", sealNo: "SEAL763105", loadAddress: "上海市浦东新区外高桥港区海通路 88 号" },
+  WB20260921007: { taskType: "排重箱（A→B）", customer: "临港海运供应链有限公司", billNo: "BL-SH-26092107", containerType: "20GP", sealNo: "SEAL921467", loadAddress: "上海市浦东新区临港大道 1555 号" },
+  WB20260920008: { taskType: "提重送货", customer: "嘉兴联运供应链有限公司", billNo: "BL-SH-26092008", containerType: "40HQ", sealNo: "SEAL817205", loadAddress: "上海市浦东新区芦潮港路 1588 号" },
+  WB20260919009: { taskType: "提重送货", customer: "上海松江国际物流有限公司", billNo: "BL-SH-26091909", containerType: "20GP", sealNo: "SEAL672184", loadAddress: "上海市浦东新区洋山港同汇路 66 号" },
+  WB20260918010: { taskType: "提重送货", customer: "昆山陆港供应链有限公司", billNo: "BL-SH-26091810", containerType: "40GP", sealNo: "SEAL509187", loadAddress: "上海市浦东新区外高桥港区洲海路 999 号" },
+  WB20261012011: { taskType: "提空装货", customer: "上海嘉定供应链有限公司", billNo: "BL-SH-26101211", containerType: "40HQ", sealNo: "SEAL831720", loadAddress: "上海市嘉定区物流园 18 号库" },
+  WB20261012012: { taskType: "排空箱（A→B）", customer: "上海临港堆场服务有限公司", billNo: "BL-SH-26101212", containerType: "20GP", sealNo: "SEAL412680", loadAddress: "上海市临港新区堆场 3 区" },
+  WB20261012013: { taskType: "排重箱（A→B）", customer: "宁波梅山港务有限公司", billNo: "BL-NB-26101213", containerType: "40HQ", sealNo: "SEAL735019", loadAddress: "宁波市北仑区港兴路 188 号" },
+  WB20261012014: { taskType: "提重送货", customer: "上海松江国际物流有限公司", billNo: "BL-SH-26101214", containerType: "20GP", sealNo: "SEAL601923", loadAddress: "上海市松江出口加工区申港路 51 号" },
 };
 
 const DEFAULT_DRIVER_ID = "SJ-1002";
@@ -80,7 +110,7 @@ function saveCertifications(certifications) {
 }
 
 function normalizeDemoDispatches(dispatches) {
-  const result = dispatches.map((item) => ({ ...item }));
+  const result = dispatches.map((item) => ({ ...item, taskType: dispatchTaskType(item) }));
   const seedById = new Map(dispatchSeed.map((item) => [item.id, item]));
   const existingIds = new Set(result.map((item) => item.id));
 
@@ -127,7 +157,7 @@ function loadDispatches() {
 function mergeDefaultExamples(incoming, current) {
   const incomingIds = new Set(incoming.map((item) => item.id));
   const missingExamples = current.filter((item) => DEFAULT_DEMO_IDS.has(item.id) && !incomingIds.has(item.id));
-  return [...incoming, ...missingExamples];
+  return [...incoming, ...missingExamples].map((item) => ({ ...item, taskType: dispatchTaskType(item) }));
 }
 
 const state = {
@@ -243,6 +273,243 @@ function statusDescription(dispatch) {
   return descriptions[dispatch.currentNode] || descriptions[dispatch.status] || "任务状态已同步";
 }
 
+function dispatchTaskType(dispatch) {
+  const taskType = dispatch?.taskType || waybillMeta[dispatch?.waybillNo]?.taskType;
+  return Object.prototype.hasOwnProperty.call(TASK_NODE_SEQUENCES, taskType) ? taskType : DEFAULT_TASK_TYPE;
+}
+
+function taskNodes(dispatch) {
+  return TASK_NODE_SEQUENCES[dispatchTaskType(dispatch)];
+}
+
+function taskNodeIndex(dispatch, nodes = taskNodes(dispatch)) {
+  const currentNode = String(dispatch.currentNode || "").trim();
+  if (dispatch.status === "已完成" || ["已送达", "完成", "完成落重", "完成落空"].includes(currentNode)) return nodes.length - 1;
+  const exactIndex = nodes.indexOf(currentNode);
+  if (exactIndex >= 0) return exactIndex;
+
+  const latestExactIndex = [...(dispatch.timeline || [])].reverse()
+    .map((item) => nodes.indexOf(String(item.node || "").trim()))
+    .find((index) => index >= 0);
+  if (latestExactIndex !== undefined) return latestExactIndex;
+
+  const taskType = dispatchTaskType(dispatch);
+  const legacyNodeIndex = {
+    已提货: 0,
+    已提箱: 0,
+    在途: Math.min(1, nodes.length - 1),
+    装卸: taskType === "提空装货" || taskType === "提重送货" ? 3 : Math.min(1, nodes.length - 1),
+    进站: taskType === "提空装货" || taskType === "提重送货" ? 5 : taskType === "排重箱（A→B）" ? 2 : Math.min(1, nodes.length - 1),
+    落箱: nodes.length - 1,
+  };
+  return Object.prototype.hasOwnProperty.call(legacyNodeIndex, currentNode) ? legacyNodeIndex[currentNode] : -1;
+}
+
+function getTaskProgress(dispatch) {
+  const nodes = taskNodes(dispatch);
+  const currentIndex = taskNodeIndex(dispatch, nodes);
+  const completedCount = dispatch.status === "已完成" ? nodes.length : Math.max(0, currentIndex + 1);
+  const currentNode = dispatchCategory(dispatch) === "cancelled"
+    ? "已取消"
+    : currentIndex >= 0
+      ? nodes[currentIndex]
+      : dispatchCategory(dispatch) === "active" ? nodes[0] : "待执行";
+  return {
+    taskType: dispatchTaskType(dispatch),
+    nodes,
+    currentIndex,
+    currentNode,
+    completedCount,
+    progress: Math.round(completedCount / nodes.length * 100),
+  };
+}
+
+function renderTaskNodeOverview(dispatch) {
+  const progress = getTaskProgress(dispatch);
+  const position = `${progress.completedCount}/${progress.nodes.length}`;
+  return `<section class="task-node-overview" aria-label="${h(`${progress.taskType}任务进度`)}"><div class="task-node-heading"><span>任务类型</span><strong>${h(progress.taskType)}</strong></div><div class="task-progress-meta"><span>当前节点 <b>${h(progress.currentNode)}</b></span><strong>${position}</strong></div><div class="task-progress-track" role="progressbar" aria-label="任务进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.progress}"><i style="width:${progress.progress}%"></i></div></section>`;
+}
+
+function taskNodeActionState(dispatch, index) {
+  const category = dispatchCategory(dispatch);
+  if (category === "cancelled") return "cancelled";
+  if (category === "pending") return "pending";
+  if (category === "completed") return "completed";
+  const currentIndex = getTaskProgress(dispatch).currentIndex;
+  if (index <= currentIndex) return "completed";
+  if (index === currentIndex + 1) return "actionable";
+  return "upcoming";
+}
+
+function nodePhotoAttachments(dispatch, node) {
+  return (dispatch.timeline || [])
+    .filter((item) => item.node === node)
+    .flatMap((item) => item.photoAttachments || []);
+}
+
+function renderTimelinePhotoTags(item) {
+  const attachments = item.photoAttachments || [];
+  if (attachments.length) {
+    return attachments.map((photo) => `<button class="timeline-photo" data-view-photo data-photo-id="${h(photo.id)}" data-photo-node="${h(item.node)}" data-timeline-photo type="button"><span class="timeline-photo-frame"><span class="timeline-photo-placeholder" aria-hidden="true">照片</span></span><span class="timeline-photo-label">${h(photo.label || photo.name)}</span></button>`).join("");
+  }
+  return (item.photos || []).map((photo) => `<button class="timeline-photo" data-view-photo data-photo-node="${h(item.node)}" data-photo-name="${h(photo)}" type="button"><span class="timeline-photo-frame"><span class="timeline-photo-placeholder" aria-hidden="true">照片</span></span><span class="timeline-photo-label">${h(photo)}</span></button>`).join("");
+}
+
+function nextNode(dispatch) {
+  const progress = getTaskProgress(dispatch);
+  return progress.nodes[Math.min(progress.currentIndex + 1, progress.nodes.length - 1)];
+}
+
+function renderDetailActionBar(dispatch, category = dispatchCategory(dispatch)) {
+  if (category === "pending") {
+    return `<button class="danger" data-detail-action="reject" type="button">拒绝</button><button class="primary" data-detail-action="accept" type="button">确认接单</button>`;
+  }
+  if (category === "active") {
+    const node = nextNode(dispatch);
+    return `<button data-detail-action="contact" type="button">联系调度</button><button class="primary" data-detail-action="progress" data-node="${h(node)}" type="button">提交 ${h(node)}</button>`;
+  }
+  return `<button data-detail-action="copy" type="button">复制运单号</button><button class="primary" data-detail-action="back" type="button">返回运单列表</button>`;
+}
+
+function photoRequirementsForNode(dispatch, node = nextNode(dispatch)) {
+  return TASK_NODE_PHOTO_REQUIREMENTS[dispatchTaskType(dispatch)]?.[node] || [];
+}
+
+function missingPhotoCount(photoInputs) {
+  return photoInputs.filter((input) => !input.files?.length).length;
+}
+
+let photoViewerUrls = [];
+let timelinePhotoUrls = [];
+let timelinePhotoRenderId = 0;
+
+function clearPhotoViewerUrls() {
+  photoViewerUrls.forEach((url) => URL.revokeObjectURL(url));
+  photoViewerUrls = [];
+}
+
+function clearTimelinePhotoUrls() {
+  timelinePhotoRenderId += 1;
+  timelinePhotoUrls.forEach((url) => URL.revokeObjectURL(url));
+  timelinePhotoUrls = [];
+}
+
+async function renderTimelinePhotoImages() {
+  clearTimelinePhotoUrls();
+  const renderId = timelinePhotoRenderId;
+  const buttons = [...elements.detailContent.querySelectorAll("[data-timeline-photo]")];
+  const loadedPhotos = await Promise.all(buttons.map(async (button) => ({
+    button,
+    blob: await window.DispatchStore.getPhoto(button.dataset.photoId).catch(() => null),
+  })));
+  if (renderId !== timelinePhotoRenderId) return;
+  loadedPhotos.forEach(({ button, blob }) => {
+    if (!blob || !button.isConnected) return;
+    const imageUrl = URL.createObjectURL(blob);
+    timelinePhotoUrls.push(imageUrl);
+    const frame = button.querySelector(".timeline-photo-frame");
+    const image = document.createElement("img");
+    image.src = imageUrl;
+    image.alt = button.querySelector(".timeline-photo-label").textContent;
+    frame.replaceChildren(image);
+  });
+}
+
+function positionPhotoViewer() {
+  const shell = document.querySelector(".phone-shell");
+  const dialog = document.querySelector("#photoViewerDialog");
+  if (!shell || !dialog) return;
+  const bounds = shell.getBoundingClientRect();
+  dialog.style.setProperty("--viewer-left", `${bounds.left}px`);
+  dialog.style.setProperty("--viewer-bottom", `${Math.max(0, window.innerHeight - bounds.bottom)}px`);
+  dialog.style.setProperty("--viewer-width", `${bounds.width}px`);
+  dialog.style.setProperty("--viewer-height", `${bounds.height}px`);
+}
+
+function renderPhotoPlaceholder(photo) {
+  const label = photo.label || photo.name || "节点照片";
+  return `<figure class="photo-viewer-item photo-viewer-placeholder"><div class="photo-placeholder-mark" aria-hidden="true">▧</div><strong>演示占位照片</strong><span>${h(label)}</span></figure>`;
+}
+
+async function openPhotoViewer(dispatchId, node, selectedPhotoId = "", selectedPhotoName = "") {
+  const dispatch = state.dispatches.find((item) => item.id === dispatchId);
+  if (!dispatch) return;
+  let attachments = nodePhotoAttachments(dispatch, node)
+    .filter((photo) => !selectedPhotoId || photo.id === selectedPhotoId);
+  if (!attachments.length) {
+    const legacyPhotos = (dispatch.timeline || [])
+      .filter((item) => item.node === node)
+      .flatMap((item) => item.photos || [])
+      .filter((name) => !selectedPhotoName || name === selectedPhotoName);
+    const photoLabels = legacyPhotos.length
+      ? legacyPhotos
+      : (photoRequirementsForNode(dispatch, node).length ? photoRequirementsForNode(dispatch, node) : [`${node}照片 1`, `${node}照片 2`, `${node}照片 3`]);
+    attachments = photoLabels.map((label, index) => ({ id: `placeholder-${index}`, label, placeholder: true }));
+  }
+
+  const dialog = document.querySelector("#photoViewerDialog");
+  const content = document.querySelector("#photoViewerGrid");
+  document.querySelector("#photoViewerTitle").textContent = `${node} · ${attachments.length} 张照片`;
+  content.innerHTML = `<p class="photo-viewer-loading">正在加载图片</p>`;
+  clearPhotoViewerUrls();
+  positionPhotoViewer();
+  dialog.showModal();
+
+  const loadedPhotos = await Promise.all(attachments.map(async (photo) => ({
+    ...photo,
+    blob: photo.placeholder ? null : await window.DispatchStore.getPhoto(photo.id).catch(() => null),
+  })));
+  if (!dialog.open) return;
+  content.innerHTML = loadedPhotos.map((photo) => {
+    if (!photo.blob) return renderPhotoPlaceholder(photo);
+    const url = URL.createObjectURL(photo.blob);
+    photoViewerUrls.push(url);
+    return `<figure class="photo-viewer-item"><img src="${url}" alt="${h(photo.label || photo.name)}" /><figcaption><strong>${h(photo.label || photo.name)}</strong><span>${h(photo.name)}</span></figcaption></figure>`;
+  }).join("");
+}
+
+function renderProgressPhotoRequirements(dispatch, node) {
+  const requirements = photoRequirementsForNode(dispatch, node);
+  const section = document.querySelector("#photoRequirements");
+  const list = document.querySelector("#photoSlotList");
+  const hint = document.querySelector("#photoRequirementsHint");
+  const count = document.querySelector("#photoRequirementsCount");
+  section.hidden = requirements.length === 0;
+  if (!requirements.length) {
+    list.innerHTML = "";
+    return;
+  }
+  document.querySelector("#photoRequirementsTitle").textContent = `本节点需上传 ${requirements.length} 张照片`;
+  count.textContent = `0/${requirements.length}`;
+  hint.textContent = "按每项拍摄要求分别上传，照片齐全后才能提交节点。";
+  list.innerHTML = requirements.map((label, index) => `
+    <label class="photo-slot"><input data-photo-slot data-photo-label="${h(label)}" type="file" accept="image/*" capture="environment" /><span class="photo-slot-index">${String(index + 1).padStart(2, "0")}</span><span class="photo-slot-copy"><strong>${h(label)}</strong><small>点击拍照或从相册选择</small></span><span class="photo-slot-state">待上传</span></label>`).join("");
+}
+
+function updateProgressPhotoCount() {
+  const inputs = [...document.querySelectorAll("#photoSlotList [data-photo-slot]")];
+  const selectedCount = inputs.length - missingPhotoCount(inputs);
+  const count = document.querySelector("#photoRequirementsCount");
+  if (count) count.textContent = `${selectedCount}/${inputs.length}`;
+  inputs.forEach((input) => {
+    const slot = input.closest(".photo-slot");
+    const state = slot.querySelector(".photo-slot-state");
+    const copy = slot.querySelector(".photo-slot-copy small");
+    const file = input.files?.[0];
+    slot.classList.toggle("selected", Boolean(file));
+    state.textContent = file ? "已选择" : "待上传";
+    copy.textContent = file ? file.name : "点击拍照或从相册选择";
+  });
+}
+
+function isTaskAwaitingStart(dispatch) {
+  return dispatch.status === "运输中" && getTaskProgress(dispatch).currentIndex < 0;
+}
+
+function isTaskInProgress(dispatch) {
+  return dispatch.status === "运输中" && getTaskProgress(dispatch).currentIndex >= 0;
+}
+
 function taskCard(dispatch) {
   const category = dispatchCategory(dispatch);
   return `
@@ -266,6 +533,7 @@ function taskCard(dispatch) {
         <span class="meta-chip">车 ${h(dispatch.vehicleId || "待分配")}</span>
         <span class="meta-chip">箱 ${h(dispatch.boxes)}</span>
       </div>
+      ${renderTaskNodeOverview(dispatch)}
       ${dispatch.note ? `<p class="task-note">调度备注：${h(dispatch.note)}</p>` : ""}
       <div class="task-card-actions">
         <button class="card-button" data-action="detail" data-id="${h(dispatch.id)}" type="button">查看详情</button>
@@ -319,6 +587,7 @@ function orderCard(dispatch) {
       <div class="order-card-top"><strong>${h(dispatch.waybillNo)}</strong><span class="status-badge ${category}">${h(statusLabel(dispatch))}</span></div>
       <div class="order-route">${h(dispatch.origin)}<span>→</span>${h(dispatch.destination)}</div>
       <div class="order-info"><span>派单时间　<b>${h(dispatch.dispatchTime || "-")}</b></span><span>车辆　<b>${h(dispatch.vehicleId || "-")}</b></span><span>箱信息　<b>${h(dispatch.boxes)}</b></span></div>
+      ${renderTaskNodeOverview(dispatch)}
     </article>`;
 }
 
@@ -328,10 +597,10 @@ function renderOrders() {
     const isAcceptedOrder = item.status !== "已派单" && item.currentNode !== "已拒绝";
     const matchedStatus = state.orderFilter === "all" || dispatchCategory(item) === state.orderFilter;
     const matchedStage = state.orderStage === "all"
-      || (state.orderStage === "pickup" && item.status === "运输中" && ["已接单", "待提货"].includes(item.currentNode))
-      || (state.orderStage === "transit" && item.status === "运输中" && ["已提货", "在途"].includes(item.currentNode))
+      || (state.orderStage === "pickup" && isTaskAwaitingStart(item))
+      || (state.orderStage === "transit" && isTaskInProgress(item))
       || (state.orderStage === "completed" && item.status === "已完成");
-    const searchText = `${item.waybillNo} ${item.routeName} ${item.boxes} ${item.origin} ${item.destination}`.toLowerCase();
+    const searchText = `${item.waybillNo} ${item.routeName} ${item.boxes} ${item.origin} ${item.destination} ${dispatchTaskType(item)}`.toLowerCase();
     return isAcceptedOrder && matchedStatus && matchedStage && searchText.includes(keyword);
   });
   elements.orderList.innerHTML = rows.length ? rows.map(orderCard).join("") : emptyState("没有找到运单", "请调整状态筛选或搜索关键词");
@@ -412,8 +681,8 @@ function renderProfile() {
   const certification = currentCertification();
   const certificationView = certificationMeta(certification.status);
   const orders = acceptedOrders();
-  const pickup = orders.filter((item) => item.status === "运输中" && ["已接单", "待提货"].includes(item.currentNode)).length;
-  const transit = orders.filter((item) => item.status === "运输中" && ["已提货", "在途"].includes(item.currentNode)).length;
+  const pickup = orders.filter(isTaskAwaitingStart).length;
+  const transit = orders.filter(isTaskInProgress).length;
   const completed = orders.filter((item) => item.status === "已完成").length;
   const currentVehicleDispatch = driverDispatches().find((item) => item.vehicleId && item.status === "运输中")
     || driverDispatches().find((item) => item.vehicleId);
@@ -435,7 +704,7 @@ function renderProfile() {
   if (insuranceStatus) insuranceStatus.textContent = currentVehicleDispatch?.vehicleId ? "已关联" : "待完善";
   document.querySelector("#profileOrderStats").innerHTML = `
     <button data-order-stage="all" type="button"><strong>${orders.length}</strong><span>全部运单</span></button>
-    <button data-order-stage="pickup" type="button"><strong>${pickup}</strong><span>待提货</span></button>
+    <button data-order-stage="pickup" type="button"><strong>${pickup}</strong><span>待执行</span></button>
     <button data-order-stage="transit" type="button"><strong>${transit}</strong><span>运输中</span></button>
     <button data-order-stage="completed" type="button"><strong>${completed}</strong><span>已完成</span></button>`;
 }
@@ -623,35 +892,24 @@ function closeProfileSubpage() {
   state.activeProfilePage = "";
 }
 
-function progressIndex(dispatch) {
-  const indexMap = { 已派单: 0, 待提货: 0, 已接单: 1, 已提货: 2, 在途: 3, 已送达: 4 };
-  return indexMap[dispatch.currentNode] ?? (dispatch.status === "已完成" ? 4 : 0);
-}
-
 function renderDetail() {
   const dispatch = state.dispatches.find((item) => item.id === state.activeDispatchId);
   if (!dispatch) return closeDetail();
   const meta = waybillMeta[dispatch.waybillNo] || {};
   const category = dispatchCategory(dispatch);
-  const steps = ["已派单", "已接单", "已提货", "在途", "已送达"];
-  const currentIndex = progressIndex(dispatch);
-  const progress = steps.map((step, index) => `<div class="progress-step ${index < currentIndex ? "done" : ""} ${index === currentIndex ? "current" : ""}"><i></i><span>${step}</span></div>`).join("");
+  const taskProgress = getTaskProgress(dispatch);
+  const taskPosition = `${taskProgress.completedCount}/${taskProgress.nodes.length}`;
   const timeline = [...(dispatch.timeline || [])].reverse().map((item) => `
-    <div class="timeline-row"><time>${h(item.time.split(" ")[1] || item.time)}<br>${h(item.time.split(" ")[0] || "")}</time><span class="timeline-axis"><i></i></span><div class="timeline-copy"><strong>${h(item.node)}</strong><p>${h(item.desc)}</p>${item.photos?.length ? `<div class="photo-tags">${item.photos.map((photo) => `<span>${h(photo)}</span>`).join("")}</div>` : ""}</div></div>`).join("");
+    <div class="timeline-row"><time>${h(item.time.split(" ")[1] || item.time)}<br>${h(item.time.split(" ")[0] || "")}</time><span class="timeline-axis"><i></i></span><div class="timeline-copy"><strong>${h(item.node)}</strong><p>${h(item.desc)}</p>${item.photos?.length || item.photoAttachments?.length ? `<div class="photo-tags">${renderTimelinePhotoTags(item)}</div>` : ""}</div></div>`).join("");
   elements.detailContent.innerHTML = `
     <section class="detail-status-card"><div class="detail-status-top"><span>${h(dispatch.waybillNo)}</span><strong>${h(statusLabel(dispatch))}</strong></div><h2>${h(statusDescription(dispatch))}</h2><p>派单时间 ${h(dispatch.dispatchTime || "-")}</p></section>
     <section class="detail-route-card"><div class="detail-route-title"><strong>${h(dispatch.routeName)}</strong><span>${h(dispatch.vehicleId || "待分配")}</span></div><div class="route-block"><div class="route-track"><i class="route-dot"></i><i class="route-dot end"></i></div><div class="route-points"><div class="route-point"><span>起运地</span><strong>${h(dispatch.origin)}</strong></div><div class="route-point"><span>目的地</span><strong>${h(dispatch.destination)}</strong></div></div></div><div class="address-action"><button data-detail-action="navigate" type="button">导航至目的地</button><a href="tel:4008006688">联系调度</a></div></section>
-    <section class="detail-card"><strong class="detail-card-title">运输进度</strong><div class="progress-track">${progress}</div></section>
+    <section class="detail-card"><div class="detail-card-heading"><strong class="detail-card-title">任务进度</strong><span>${h(taskProgress.taskType)}</span></div><div class="detail-progress-meta"><span>当前节点 <strong>${h(taskProgress.currentNode)}</strong></span><b>${taskPosition}</b></div><div class="detail-progress-track" role="progressbar" aria-label="任务进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${taskProgress.progress}"><i style="width:${taskProgress.progress}%"></i></div></section>
     <section class="detail-card"><strong class="detail-card-title">运单信息</strong><div class="detail-grid"><div class="detail-field"><span>客户名称</span><strong>${h(meta.customer || "待补充")}</strong></div><div class="detail-field"><span>提单号</span><strong>${h(meta.billNo || "-")}</strong></div><div class="detail-field"><span>箱信息</span><strong>${h(dispatch.boxes)}</strong></div><div class="detail-field"><span>封号</span><strong>${h(meta.sealNo || "-")}</strong></div><div class="detail-field"><span>车辆</span><strong>${h(dispatch.vehicleId || "待分配")}</strong></div><div class="detail-field full"><span>装卸地址</span><strong>${h(dispatch.loadAddress || meta.loadAddress || dispatch.origin)}</strong></div><div class="detail-field full"><span>调度备注</span><strong>${h(dispatch.note || "无")}</strong></div>${dispatch.rejectionReason ? `<div class="detail-field full"><span>拒单原因</span><strong>${h(dispatch.rejectionReason)}</strong></div>` : ""}</div></section>
     <section class="detail-card"><strong class="detail-card-title">节点记录</strong><div class="timeline-list">${timeline || `<div class="empty-state"><p>暂无节点记录</p></div>`}</div></section>`;
 
-  if (category === "pending") {
-    elements.detailActionBar.innerHTML = `<button class="danger" data-detail-action="reject" type="button">拒绝</button><button class="primary" data-detail-action="accept" type="button">确认接单</button>`;
-  } else if (category === "active") {
-    elements.detailActionBar.innerHTML = `<button data-detail-action="contact" type="button">联系调度</button><button class="primary" data-detail-action="progress" type="button">更新运输进度</button>`;
-  } else {
-    elements.detailActionBar.innerHTML = `<button data-detail-action="copy" type="button">复制运单号</button><button class="primary" data-detail-action="back" type="button">返回运单列表</button>`;
-  }
+  renderTimelinePhotoImages();
+  elements.detailActionBar.innerHTML = renderDetailActionBar(dispatch, category);
 }
 
 function renderDriverOptions() {
@@ -723,13 +981,18 @@ function openDetail(dispatchId) {
   state.activeDispatchId = dispatchId;
   renderDetail();
   elements.detailView.classList.add("open");
+  elements.bottomNav.hidden = true;
+  elements.bottomNav.setAttribute("aria-hidden", "true");
   document.querySelector(".phone-shell").classList.add("detail-open");
   elements.detailView.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 }
 
 function closeDetail() {
+  clearTimelinePhotoUrls();
   elements.detailView.classList.remove("open");
+  elements.bottomNav.hidden = false;
+  elements.bottomNav.setAttribute("aria-hidden", "false");
   document.querySelector(".phone-shell").classList.remove("detail-open");
   elements.detailView.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
@@ -756,6 +1019,7 @@ function persist(message) {
 function acceptDispatch(dispatchId) {
   const dispatch = state.dispatches.find((item) => item.id === dispatchId);
   if (!dispatch || dispatch.status !== "已派单") return false;
+  dispatch.taskType = dispatchTaskType(dispatch);
   dispatch.status = "运输中";
   dispatch.currentNode = "已接单";
   dispatch.acceptedAt = window.DispatchStore.nowText();
@@ -791,17 +1055,15 @@ function openReject(dispatchId) {
   elements.rejectDialog.showModal();
 }
 
-function nextNode(dispatch) {
-  return ({ 已接单: "已提货", 待提货: "已提货", 已提货: "在途", 在途: "已送达" })[dispatch.currentNode] || "已提货";
-}
-
-function openProgress(dispatchId) {
+function openProgress(dispatchId, requestedNode) {
   const dispatch = state.dispatches.find((item) => item.id === dispatchId);
   if (!dispatch || dispatch.status !== "运输中") return;
+  const node = nextNode(dispatch);
+  if (requestedNode && requestedNode !== node) return;
   state.activeDispatchId = dispatchId;
   document.querySelector("#progressForm").reset();
-  document.querySelector("#uploadHint").textContent = "支持从相册选择或拍照";
-  document.querySelector("#nextNodeText").textContent = nextNode(dispatch);
+  document.querySelector("#nextNodeText").textContent = node;
+  renderProgressPhotoRequirements(dispatch, node);
   elements.progressDialog.showModal();
 }
 
@@ -843,7 +1105,7 @@ function handleDispatchAction(event) {
   const { action, id } = button.dataset;
   if (action === "detail") openDetail(id);
   if (action === "accept") acceptAndOpenOrders(id);
-  if (action === "progress") openProgress(id);
+  if (action === "progress") openProgress(id, button.dataset.node);
 }
 
 elements.taskList.addEventListener("click", handleDispatchAction);
@@ -861,7 +1123,7 @@ elements.assistantQuickList.addEventListener("click", (event) => {
 
 function openOrdersForStage(stage) {
   const filterByStage = { all: "all", pickup: "active", transit: "active", completed: "completed" };
-  const titleByStage = { all: "我的运单", pickup: "待提货运单", transit: "运输中运单", completed: "已完成运单" };
+  const titleByStage = { all: "我的运单", pickup: "待执行运单", transit: "运输中运单", completed: "已完成运单" };
   state.orderStage = stage;
   state.orderFilter = filterByStage[stage] || "all";
   state.orderSearch = "";
@@ -970,6 +1232,11 @@ elements.detailActionBar.addEventListener("click", async (event) => {
 });
 
 elements.detailContent.addEventListener("click", async (event) => {
+  const photoButton = event.target.closest("[data-view-photo]");
+  if (photoButton) {
+    openPhotoViewer(state.activeDispatchId, photoButton.dataset.photoNode, photoButton.dataset.photoId, photoButton.dataset.photoName);
+    return;
+  }
   const button = event.target.closest("[data-detail-action='navigate']");
   if (!button) return;
   const dispatch = state.dispatches.find((item) => item.id === state.activeDispatchId);
@@ -996,26 +1263,52 @@ document.querySelector("#rejectForm").addEventListener("submit", (event) => {
   renderDetail();
 });
 
-document.querySelector("#progressForm").addEventListener("submit", (event) => {
+document.querySelector("#progressForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const dispatch = state.dispatches.find((item) => item.id === state.activeDispatchId);
   if (!dispatch) return;
   const formData = new FormData(event.currentTarget);
   const node = nextNode(dispatch);
   const remark = String(formData.get("remark") || "").trim();
-  const files = [...event.currentTarget.elements.photos.files].map((file) => file.name);
+  const photoInputs = [...event.currentTarget.querySelectorAll("[data-photo-slot]")];
+  const missingCount = missingPhotoCount(photoInputs);
+  if (missingCount) {
+    showToast(`请完成本节点全部拍照要求，还需上传 ${missingCount} 张`);
+    return;
+  }
+  const capturedPhotos = photoInputs.map((input, index) => ({
+    id: `${dispatch.id}-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+    label: input.dataset.photoLabel,
+    name: input.files[0].name,
+    type: input.files[0].type,
+  }));
+  try {
+    await window.DispatchStore.savePhotos(capturedPhotos.map((photo, index) => ({ id: photo.id, blob: photoInputs[index].files[0] })));
+  } catch (error) {
+    console.error("节点照片保存失败。", error);
+    showToast("照片未能保存，节点暂未提交");
+    return;
+  }
+  const files = capturedPhotos.map((photo) => `${photo.label}：${photo.name}`);
   dispatch.currentNode = node;
-  if (node === "已送达") dispatch.status = "已完成";
+  const nodes = taskNodes(dispatch);
+  const isComplete = node === nodes[nodes.length - 1];
+  if (isComplete) dispatch.status = "已完成";
   dispatch.timeline = dispatch.timeline || [];
-  dispatch.timeline.push({ node, time: window.DispatchStore.nowText(), desc: remark || ({ 已提货: "司机已完成提货", 在途: "车辆已发车，运输途中", 已送达: "货物已安全送达目的地" })[node], photos: files });
+  dispatch.timeline.push({ node, time: window.DispatchStore.nowText(), desc: remark || `司机已完成“${node}”节点`, photos: files, photoAttachments: capturedPhotos });
   elements.progressDialog.close();
-  persist(node === "已送达" ? "任务已完成，状态已同步" : `已上报“${node}”节点`);
+  persist(isComplete ? "任务已完成，状态已同步" : `已提交“${node}”节点`);
   renderDetail();
 });
 
-document.querySelector("#progressForm input[type='file']").addEventListener("change", (event) => {
-  const count = event.target.files.length;
-  document.querySelector("#uploadHint").textContent = count ? `已选择 ${count} 张照片` : "支持从相册选择或拍照";
+document.querySelector("#progressForm").addEventListener("change", (event) => {
+  if (event.target.matches("[data-photo-slot]")) updateProgressPhotoCount();
+});
+
+document.querySelector("#photoViewerClose").addEventListener("click", () => document.querySelector("#photoViewerDialog").close());
+document.querySelector("#photoViewerDialog").addEventListener("close", clearPhotoViewerUrls);
+window.addEventListener("resize", () => {
+  if (document.querySelector("#photoViewerDialog").open) positionPhotoViewer();
 });
 
 document.querySelectorAll(".bottom-sheet .sheet-close").forEach((button) => {

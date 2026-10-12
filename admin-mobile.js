@@ -479,8 +479,6 @@ function renderWorkbench() {
   $("#focusList").innerHTML = `
     <button class="focus-row" data-open-module="dispatch" type="button"><span class="focus-symbol"><i data-lucide="circle-alert"></i></span><span><strong>2 条任务等待执行</strong><small>优先完成司机和车辆匹配</small></span><em>去处理</em></button>
     <button class="focus-row" data-open-module="reminder" type="button"><span class="focus-symbol blue"><i data-lucide="shield-alert"></i></span><span><strong>2 项车辆证件预警</strong><small>包含 1 项已过期记录</small></span><em>查看</em></button>`;
-  const loads = [["北仑港至江北仓", "2 单", 67], ["洋山港至昆山保税区", "1 单", 50], ["萧山仓至梅山码头", "1 单", 50]];
-  $("#mobileRouteLoad").innerHTML = loads.map(([name, count, load]) => `<div class="route-load-item"><div><strong>${name}</strong><small>今日 ${count}</small></div><div class="route-progress ${load >= 80 ? "warning" : ""}"><i><b style="width:${load}%"></b></i><span>${load}% 饱和度</span></div></div>`).join("");
   refreshIcons();
 }
 
