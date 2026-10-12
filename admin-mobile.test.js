@@ -56,6 +56,17 @@ assert.match(script, /\["capacity", "vehicle", "trailer", "driver", "customer"\]
 assert.match(script, /function buildAssetRecord\(moduleName, values\)/);
 assert.match(script, /function rebuildCapacityCatalog\(/);
 assert.match(script, /function rebuildDispatchManagementCatalog\(\)/);
+assert.match(script, /function ensurePendingDispatchSamples\(\)/);
+assert.match(script, /const pendingDispatchSamples = \[/);
+for (const dispatchId of ["PD-M-2101", "PD-M-2102", "PD-M-2103", "PD-M-2104"]) {
+  assert.ok(script.includes(dispatchId), `待派单样例缺少 ${dispatchId}`);
+}
+assert.match(script, /data-start-dispatch="\$\{h\(item\.id\)\}"/);
+assert.match(script, />开始派单<\/button>/);
+assert.match(script, /openEntry\("dispatch", dispatchId\)/, "开始派单应直接进入运力分配表单");
+assert.match(script, /const pendingDispatchCount = moduleCatalog\.dispatch\.items\.filter/);
+assert.match(script, /\$\{pendingCount\} 条任务等待派单/);
+assert.match(css, /\.list-card-actions\s*\{[^}]*display:\s*flex/);
 assert.match(script, /function renderDispatchManagementDetail\(item\)/);
 assert.match(script, /function renderDispatchDetail\(item\)/);
 assert.match(script, /function buildDispatchRecord\(values\)/);

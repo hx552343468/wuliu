@@ -76,7 +76,7 @@ final result: passed
 
 ## Findings
 
-- The `计划管理与派发 / 自动派单` navigation item is removed.
+- The `计划与派单 / 自动派单` navigation item is removed.
 - The `系统配置 / 自动派单配置` navigation item remains visible and unchanged.
 - Navigation spacing remains balanced with no empty gap or clipped item.
 

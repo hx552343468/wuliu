@@ -339,6 +339,7 @@ button { cursor: pointer; }
 .message-record p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .message-record time { display: block; margin-top: 7px; color: #b0b8c5; font-size: 9px; }
 .subpage-primary { display: flex; width: 100%; height: 44px; align-items: center; justify-content: center; margin-top: 14px; border: 0; border-radius: 8px; background: var(--primary); color: white; font-size: 12px; font-weight: 800; text-decoration: none; }
+.subpage-secondary { display: flex; width: 100%; height: 40px; align-items: center; justify-content: center; margin-top: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 700; }
 .certification-notice { margin-top: 12px; border-radius: 10px; padding: 12px 14px; color: #8a632f; background: #fff7eb; font-size: 10px; line-height: 1.7; }
 .certification-notice.rejected { color: #b34955; background: #fff0f1; }
 .certification-form { margin-top: 12px; }
@@ -353,6 +354,37 @@ button { cursor: pointer; }
 .certification-upload strong { font-size: 10px; }
 .certification-upload span { margin-top: 5px; color: #a1abba; font-size: 8px; }
 .certification-upload.selected { border-color: #78a0f0; background: #f1f6ff; color: var(--primary); }
+.expense-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; padding: 12px; }
+.expense-type-option { display: flex; min-width: 0; min-height: 82px; align-items: center; gap: 9px; border: 1px solid #e8edf4; border-radius: 11px; padding: 10px; background: #fbfcfe; color: var(--ink); text-align: left; }
+.expense-type-option:active { border-color: #9ab4f2; background: #f1f5ff; }
+.expense-type-icon { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: #7657c9; background: #f2edff; font-size: 13px; font-weight: 800; }
+.expense-type-copy { min-width: 0; flex: 1; }
+.expense-type-copy strong, .expense-type-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expense-type-copy strong { font-size: 11px; }
+.expense-type-copy small { margin-top: 5px; color: var(--muted); font-size: 8px; }
+.expense-type-option > b { color: #aeb6c2; font-size: 18px; font-weight: 400; }
+.expense-history { margin-top: 12px; }
+.expense-record { display: flex; min-height: 57px; align-items: center; justify-content: space-between; gap: 10px; margin: 0 16px; border-bottom: 1px solid #f0f2f6; }
+.expense-record:last-child { border-bottom: 0; }
+.expense-record strong, .expense-record span { display: block; }
+.expense-record strong { color: #405069; font-size: 11px; }
+.expense-record span { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.expense-record em { border-radius: 7px; padding: 4px 7px; color: #c8721e; background: #fff4e8; font-size: 9px; font-style: normal; white-space: nowrap; }
+.expense-empty { margin-top: 12px; padding: 18px; color: var(--muted); font-size: 10px; text-align: center; }
+.expense-form { margin-top: 12px; }
+.expense-form .info-section { margin-top: 0; padding: 0 16px 16px; }
+.expense-form .info-section h2 { margin: 0 -16px 14px; }
+.expense-field { display: block; margin-top: 13px; color: #647187; font-size: 10px; font-weight: 700; }
+.expense-field input:not([type="file"]), .expense-field textarea { width: 100%; margin-top: 7px; border: 1px solid #dfe5ee; border-radius: 8px; padding: 0 11px; outline: 0; color: var(--text); background: #fbfcfe; font: inherit; font-weight: 400; }
+.expense-field input:not([type="file"]) { height: 42px; }
+.expense-field textarea { padding-top: 10px; resize: vertical; }
+.expense-field input:focus, .expense-field textarea:focus { border-color: #7e9eed; box-shadow: 0 0 0 3px rgba(53,106,230,.1); }
+.expense-upload { display: flex; min-height: 72px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; margin-top: 7px; border: 1px dashed #bac7dc; border-radius: 8px; background: #f8faff; color: #697891; text-align: center; }
+.expense-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.expense-upload strong { max-width: 90%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.expense-upload small { color: #a1abba; font-size: 8px; font-weight: 400; }
+.expense-upload.selected { border-color: #78a0f0; background: #f1f6ff; color: var(--primary); }
+.expense-upload.error { border-color: #e58d95; background: #fff6f6; color: #c34f5d; }
 
 .bottom-nav {
   position: absolute;

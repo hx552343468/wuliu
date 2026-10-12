@@ -72,6 +72,15 @@ const DEFAULT_PENDING_IDS = ["PD-1002", "PD-1006", "PD-1007"];
 const DEFAULT_ORDER_IDS = ["PD-1008", "PD-1009", "PD-1010"];
 const DEFAULT_DEMO_IDS = new Set([...DEFAULT_PENDING_IDS, ...DEFAULT_ORDER_IDS]);
 const CERTIFICATION_STORAGE_KEY = "container-logistics-driver-certifications-v1";
+const EXPENSE_STORAGE_KEY = "container-logistics-driver-expenses-v1";
+const EXPENSE_TYPES = Object.freeze([
+  { key: "fuel", label: "燃油费", hint: "柴油、汽油等燃油支出" },
+  { key: "electricity", label: "电费", hint: "充电及换电支出" },
+  { key: "gas", label: "燃气费", hint: "天然气等燃气支出" },
+  { key: "toll", label: "路桥费", hint: "高速、桥隧通行支出" },
+  { key: "parking", label: "停车费", hint: "停车及场站服务支出" },
+  { key: "other", label: "其他费用", hint: "未归类的运输相关支出" },
+]);
 const certificationDefaults = {
   "SJ-1001": { status: "verified", submittedAt: "2026-08-12 09:20", reviewedAt: "2026-08-12 11:05" },
   "SJ-1002": { status: "verified", submittedAt: "2026-08-12 09:20", reviewedAt: "2026-08-12 11:05" },
@@ -107,6 +116,19 @@ function loadCertifications() {
 
 function saveCertifications(certifications) {
   localStorage.setItem(CERTIFICATION_STORAGE_KEY, JSON.stringify(certifications));
+}
+
+function loadExpenses() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(EXPENSE_STORAGE_KEY) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveExpenses(expenses) {
+  localStorage.setItem(EXPENSE_STORAGE_KEY, JSON.stringify(expenses));
 }
 
 function normalizeDemoDispatches(dispatches) {
@@ -168,6 +190,8 @@ const state = {
   orderSearch: "",
   activeDispatchId: "",
   activeProfilePage: "",
+  activeExpenseType: "",
+  expenses: loadExpenses(),
   certifications: loadCertifications(),
   assistantDriverId: "",
   assistantMessages: [],
@@ -211,6 +235,12 @@ const elements = {
 
 function h(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
+}
+
+function todayInputValue() {
+  const date = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 function maskPhone(phone) {
@@ -743,6 +773,7 @@ function renderSubpage(page) {
     vehicle: "车辆信息",
     insurance: "车辆保险",
     messages: "消息通知",
+    expenses: "费用申报",
     service: "联系调度",
     settings: "系统设置",
   };
@@ -864,6 +895,36 @@ function renderSubpage(page) {
     return;
   }
 
+  if (page === "expenses") {
+    const selectedType = EXPENSE_TYPES.find((item) => item.key === state.activeExpenseType);
+    const driverExpenses = state.expenses
+      .filter((item) => item.driverId === state.currentDriverId)
+      .slice()
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    if (!selectedType) {
+      elements.subpageContent.innerHTML = `
+        <div class="subpage-summary expense-summary"><span class="subpage-summary-icon">费</span><div><strong>费用申报</strong><span>选择费用类型，提交运输相关支出</span></div></div>
+        <section class="info-section expense-type-section"><h2>选择费用类型</h2><div class="expense-type-grid">
+          ${EXPENSE_TYPES.map((item) => `<button class="expense-type-option" data-expense-type="${h(item.key)}" type="button"><span class="expense-type-icon">${h(item.label.slice(0, 1))}</span><span class="expense-type-copy"><strong>${h(item.label)}</strong><small>${h(item.hint)}</small></span><b>›</b></button>`).join("")}
+        </div></section>
+        ${driverExpenses.length ? `<section class="info-section expense-history"><h2>最近申报</h2>${driverExpenses.slice(0, 3).map((item) => `<div class="expense-record"><div><strong>${h(item.typeLabel)}</strong><span>${h(item.date)} · ¥${h(item.amount)}</span></div><em>待审核</em></div>`).join("")}</section>` : `<div class="expense-empty">提交后的费用申报会显示在这里</div>`}`;
+      return;
+    }
+    elements.subpageContent.innerHTML = `
+      <div class="subpage-summary expense-summary"><span class="subpage-summary-icon">${h(selectedType.label.slice(0, 1))}</span><div><strong>${h(selectedType.label)}</strong><span>填写本次费用明细并提交审核</span></div></div>
+      <form class="expense-form" id="expenseForm">
+        <section class="info-section"><h2>费用明细</h2>
+          <label class="expense-field">费用金额（元）<input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="请输入费用金额" required /></label>
+          <label class="expense-field">发生日期<input name="date" type="date" value="${todayInputValue()}" required /></label>
+          <label class="expense-field">费用凭证<span class="expense-upload"><input name="receipt" type="file" accept="image/*,.pdf" /><strong>上传发票或支付凭证</strong><small>支持图片、PDF，单个文件不超过 10MB</small></span></label>
+          <label class="expense-field">备注说明<textarea name="remark" rows="3" maxlength="120" placeholder="请输入费用用途或补充说明（选填）"></textarea></label>
+        </section>
+        <button class="subpage-primary" type="submit">提交费用申报</button>
+        <button class="subpage-secondary" data-subpage-action="back-expense-types" type="button">返回费用类型</button>
+      </form>`;
+    return;
+  }
+
   if (page === "service") {
     elements.subpageContent.innerHTML = `
       <div class="subpage-summary"><span class="subpage-summary-icon">调</span><div><strong>调度服务中心</strong><span>工作时间 07:00 - 22:00</span></div></div>
@@ -882,9 +943,12 @@ function renderSubpage(page) {
 
 function openProfileSubpage(page) {
   state.activeProfilePage = page;
+  if (page !== "expenses") state.activeExpenseType = "";
   renderSubpage(page);
   elements.profileSubpage.classList.add("open");
   elements.profileSubpage.setAttribute("aria-hidden", "false");
+  elements.bottomNav.hidden = true;
+  elements.bottomNav.setAttribute("aria-hidden", "true");
   document.querySelector(".phone-shell").classList.add("subpage-open");
   elements.subpageContent.scrollTop = 0;
 }
@@ -892,8 +956,11 @@ function openProfileSubpage(page) {
 function closeProfileSubpage() {
   elements.profileSubpage.classList.remove("open");
   elements.profileSubpage.setAttribute("aria-hidden", "true");
+  elements.bottomNav.hidden = false;
+  elements.bottomNav.setAttribute("aria-hidden", "false");
   document.querySelector(".phone-shell").classList.remove("subpage-open");
   state.activeProfilePage = "";
+  state.activeExpenseType = "";
 }
 
 function renderDetail() {
@@ -1170,6 +1237,33 @@ document.querySelector("#detailMoreButton").addEventListener("click", () => show
 document.querySelector("#backFromSubpage").addEventListener("click", closeProfileSubpage);
 
 elements.subpageContent.addEventListener("submit", (event) => {
+  if (event.target.id === "expenseForm") {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const amount = Number(formData.get("amount"));
+    const selectedType = EXPENSE_TYPES.find((item) => item.key === state.activeExpenseType);
+    if (!selectedType || !Number.isFinite(amount) || amount <= 0) {
+      showToast("请输入有效的费用金额");
+      return;
+    }
+    state.expenses.unshift({
+      id: `EXP-${Date.now()}`,
+      driverId: state.currentDriverId,
+      type: selectedType.key,
+      typeLabel: selectedType.label,
+      amount: amount.toFixed(2),
+      date: String(formData.get("date") || ""),
+      receiptName: formData.get("receipt")?.name || "",
+      remark: String(formData.get("remark") || "").trim(),
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    });
+    saveExpenses(state.expenses);
+    state.activeExpenseType = "";
+    renderSubpage("expenses");
+    showToast("费用申报已提交，等待审核");
+    return;
+  }
   if (event.target.id !== "certificationForm") return;
   event.preventDefault();
   const formData = new FormData(event.target);
@@ -1196,6 +1290,26 @@ elements.subpageContent.addEventListener("submit", (event) => {
 });
 
 elements.subpageContent.addEventListener("change", (event) => {
+  const receiptInput = event.target.closest("#expenseForm input[name='receipt']");
+  if (receiptInput) {
+    const file = receiptInput.files?.[0];
+    const upload = receiptInput.closest(".expense-upload");
+    const label = upload.querySelector("strong");
+    const hint = upload.querySelector("small");
+    if (file && file.size > 10 * 1024 * 1024) {
+      receiptInput.value = "";
+      label.textContent = "上传发票或支付凭证";
+      hint.textContent = "文件超过 10MB，请重新选择";
+      upload.classList.add("error");
+      showToast("凭证文件不能超过 10MB");
+      return;
+    }
+    label.textContent = file?.name || "上传发票或支付凭证";
+    hint.textContent = file ? "已选择凭证" : "支持图片、PDF，单个文件不超过 10MB";
+    upload.classList.toggle("selected", Boolean(file));
+    upload.classList.remove("error");
+    return;
+  }
   const input = event.target.closest(".certification-upload input[type='file']");
   if (!input) return;
   const label = input.closest(".certification-upload");
@@ -1204,8 +1318,21 @@ elements.subpageContent.addEventListener("change", (event) => {
 });
 
 elements.subpageContent.addEventListener("click", (event) => {
+  const expenseTypeTarget = event.target.closest("[data-expense-type]");
+  if (expenseTypeTarget) {
+    state.activeExpenseType = expenseTypeTarget.dataset.expenseType;
+    renderSubpage("expenses");
+    elements.subpageContent.scrollTop = 0;
+    return;
+  }
   const actionTarget = event.target.closest("[data-subpage-action]");
   if (!actionTarget) return;
+  if (actionTarget.dataset.subpageAction === "back-expense-types") {
+    state.activeExpenseType = "";
+    renderSubpage("expenses");
+    elements.subpageContent.scrollTop = 0;
+    return;
+  }
   const messages = {
     "edit-personal": "个人信息编辑功能将在正式版开放",
     "update-documents": "证件上传功能将在正式版开放",

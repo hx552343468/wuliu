@@ -30,7 +30,7 @@ const moduleCatalog = {
     ],
   },
   "dispatch-management": {
-    title: "派单管理", eyebrow: "计划管理与派发", icon: "list-checks", primary: "进入调度工作台",
+    title: "派单管理", eyebrow: "计划与派单", icon: "list-checks", primary: "进入调度工作台",
     filters: ["全部", "待匹配", "已匹配", "异常"], listFieldLimit: 6,
     items: [],
   },
@@ -84,11 +84,11 @@ const moduleCatalog = {
     ],
   },
   plan: {
-    title: "计划管理", eyebrow: "计划管理与派发", icon: "clipboard-list", primary: "新建计划任务",
+    title: "计划管理", eyebrow: "计划与派单", icon: "clipboard-list", primary: "新建计划任务",
     filters: ["全部", "待派发", "进行中", "已完成", "异常"], listFieldLimit: 6, items: [],
   },
   capacity: {
-    title: "运力管理", eyebrow: "计划管理与派发", icon: "gauge", primary: "查看运力",
+    title: "运力管理", eyebrow: "计划与派单", icon: "gauge", primary: "查看运力",
     filters: ["全部", "闲置", "运输中", "维修中", "停用"], listFieldLimit: 6, items: [],
   },
   trailer: {
@@ -384,6 +384,7 @@ function loadSharedCatalog() {
       note: `${group.rows.length} 条子任务`, raw: { ...group, linkedDispatches, routeIds },
     };
   });
+  ensurePendingDispatchSamples();
   rebuildDispatchManagementCatalog();
   rebuildCapacityCatalog(dispatches);
 }
@@ -401,6 +402,41 @@ function dispatchRawForItem(item) {
     dispatchMode: field("派单方式") === "自动派单" ? "auto" : field("派单方式") === "手动派单" ? "manual" : "pending",
     dispatchTime: field("派单时间"), note: item?.note || "",
   };
+}
+
+const pendingDispatchSamples = [
+  { id: "PD-M-2101", waybillNo: "WBM20261012001", planTaskNo: "JH20261012001", customerName: "宁波海盛集装箱服务有限公司", projectName: "穿山港短驳", taskType: "提空装货", routeId: "XL-001", orderDate: "2026-10-12", executionTime: "2026-10-12 13:30", boxType: "40HQ", boxes: "40HQ / 待补箱号", note: "13:30 前完成车辆确认" },
+  { id: "PD-M-2102", waybillNo: "WBM20261012002", planTaskNo: "JH20261012002", customerName: "上海嘉航国际物流有限公司", projectName: "出口双拖", taskType: "提重送货", routeId: "XL-002", orderDate: "2026-10-12", executionTime: "2026-10-12 14:20", boxType: "20GP", boxes: "20GP × 2 / 待补箱号", note: "双拖任务，优先匹配临港车队" },
+  { id: "PD-M-2103", waybillNo: "WBM20261012003", planTaskNo: "JH20261012003", customerName: "杭州联贸进出口有限公司", projectName: "梅山港出口", taskType: "排重箱（A→B）", routeId: "XL-003", orderDate: "2026-10-12", executionTime: "2026-10-12 15:10", boxType: "40GP", boxes: "40GP / 待补箱号", note: "夜间进港，需确认司机证件" },
+  { id: "PD-M-2104", waybillNo: "WBM20261012004", planTaskNo: "JH20261012004", customerName: "苏州新程电子科技有限公司", projectName: "园区调拨", taskType: "排空箱（A→B）", routeId: "XL-004", orderDate: "2026-10-12", executionTime: "2026-10-12 16:00", boxType: "20GP", boxes: "20GP / 待补箱号", note: "客户要求到场前电话确认" },
+];
+
+function ensurePendingDispatchSamples() {
+  pendingDispatchSamples.forEach((sample) => {
+    if (moduleCatalog.dispatch.items.some((item) => item.id === sample.id)) return;
+    const route = moduleCatalog.route.items.find((item) => item.id === sample.routeId);
+    const routeRaw = route?.raw || {};
+    const waybillRaw = {
+      waybillNo: sample.waybillNo, planTaskId: sample.planTaskNo, planTaskNo: sample.planTaskNo, orderDate: sample.orderDate,
+      executionTime: sample.executionTime, customerName: sample.customerName, projectName: sample.projectName, taskType: sample.taskType,
+      routeId: sample.routeId, routeName: route?.title || "待确认线路", boxType: sample.boxType, loadAddress: [routeRaw.loadingPoint || routeRaw.origin, routeRaw.unloadingPoint || routeRaw.destination].filter(Boolean).join(" / "), remark: sample.note,
+    };
+    moduleCatalog.waybill.items.push({ id: sample.waybillNo, title: sample.customerName, subtitle: route?.title || "待确认线路", status: "已审核", statusClass: "success", fields: [["接单日期", sample.orderDate], ["计划任务", sample.planTaskNo], ["箱型", sample.boxType], ["任务类型", sample.taskType], ["装卸地址", waybillRaw.loadAddress || "待维护"]], note: sample.note, raw: waybillRaw });
+    const dispatchRaw = {
+      ...sample, routeName: route?.title || "待确认线路", origin: routeRaw.origin || "", destination: routeRaw.destination || "", loadAddress: waybillRaw.loadAddress,
+      dispatchMode: "pending", dispatchTime: "", driverId: "", driverName: "待分配", phone: "-", vehicleId: "", vehicleType: "燃油车", trailerId: "",
+      status: "待派单", currentNode: "待派单", estimatedRevenue: Number(routeRaw.estimatedRevenue || 0), commission: 0, pushed: false, timeline: [],
+    };
+    moduleCatalog.dispatch.items.push({ id: sample.id, title: dispatchRaw.routeName, subtitle: sample.waybillNo, status: "待派单", statusClass: "warning", fields: [["司机", "待分配"], ["车辆", "待分配"], ["挂车", "未绑定"], ["当前节点", "待派单"], ["派单方式", "待分配"], ["派单时间", "-"]], note: sample.note, raw: dispatchRaw });
+  });
+
+  moduleCatalog.dispatch.items.filter((item) => item.status === "待派单").forEach((item, index) => {
+    const dispatch = dispatchRawForItem(item);
+    if (!dispatch.waybillNo || moduleCatalog.waybill.items.some((entry) => entry.id === dispatch.waybillNo)) return;
+    const route = moduleCatalog.route.items.find((entry) => entry.id === dispatch.routeId) || moduleCatalog.route.items.find((entry) => entry.title === dispatch.routeName);
+    const raw = { waybillNo: dispatch.waybillNo, planTaskNo: dispatch.planTaskNo || `JH-PENDING-${String(index + 1).padStart(3, "0")}`, orderDate: dispatch.orderDate || localDate(), executionTime: dispatch.executionTime || dispatch.orderDate || localDate(), customerName: dispatch.customerName || "待补充客户", projectName: dispatch.projectName || "待分配项目", taskType: dispatch.taskType || "提空装货", routeId: dispatch.routeId || route?.id || "", boxType: dispatch.boxType || dispatch.boxes || "待补录", loadAddress: dispatch.loadAddress || "", remark: dispatch.note || "" };
+    moduleCatalog.waybill.items.push({ id: raw.waybillNo, title: raw.customerName, subtitle: route?.title || dispatch.routeName || "待确认线路", status: "已审核", statusClass: "success", fields: [["接单日期", raw.orderDate], ["计划任务", raw.planTaskNo], ["箱型", raw.boxType], ["任务类型", raw.taskType], ["装卸地址", raw.loadAddress || "待维护"]], note: raw.remark, raw });
+  });
 }
 
 function rebuildDispatchManagementCatalog() {
@@ -570,8 +606,9 @@ function closeManagerDrawer() {
 }
 
 function renderWorkbench() {
+  const pendingCount = moduleCatalog.dispatch.items.filter((item) => item.status === "待派单").length;
   $("#focusList").innerHTML = `
-    <button class="focus-row" data-open-module="dispatch" type="button"><span class="focus-symbol"><i data-lucide="circle-alert"></i></span><span><strong>2 条任务等待执行</strong><small>优先完成司机和车辆匹配</small></span><em>去处理</em></button>
+    <button class="focus-row" data-open-module="dispatch-management" type="button"><span class="focus-symbol"><i data-lucide="circle-alert"></i></span><span><strong>${pendingCount} 条任务等待派单</strong><small>优先完成司机和车辆匹配</small></span><em>开始派单</em></button>
     <button class="focus-row" data-open-module="reminder" type="button"><span class="focus-symbol blue"><i data-lucide="shield-alert"></i></span><span><strong>2 项车辆证件预警</strong><small>包含 1 项已过期记录</small></span><em>查看</em></button>`;
   refreshIcons();
 }
@@ -594,7 +631,7 @@ function renderModule() {
     <article class="manager-list-card">
       <div class="list-card-top"><div><strong>${h(item.title)}</strong><small>${h(item.id)} · ${h(item.subtitle)}</small></div><span class="status-tag ${h(item.statusClass)}">${h(item.status)}</span></div>
       <div class="list-card-grid">${item.fields.slice(0, meta.listFieldLimit || 4).map(([label, value]) => `<div class="list-field"><span>${h(label)}</span><strong>${h(value)}</strong></div>`).join("")}</div>
-      <div class="list-card-footer"><span>${h(item.note || "资料已同步")}</span><button class="${["待派单", "待处理", "待匹配"].includes(item.status) ? "primary" : ""}" data-module-detail="${h(item.id)}" type="button">${item.status === "待派单" ? "去派单" : item.status === "待匹配" ? "去匹配" : item.status === "待处理" ? "去处理" : "查看详情"}</button></div>
+      <div class="list-card-footer"><span>${h(item.note || "资料已同步")}</span><div class="list-card-actions"><button data-module-detail="${h(item.id)}" type="button">查看详情</button>${["待派单", "待匹配"].includes(item.status) && ["dispatch", "dispatch-management"].includes(state.currentModule) ? `<button class="primary" data-start-dispatch="${h(item.id)}" type="button">开始派单</button>` : item.status === "待处理" ? `<button class="primary" data-module-detail="${h(item.id)}" type="button">去处理</button>` : ""}</div></div>
     </article>`).join("") : `<div class="module-empty"><span><i data-lucide="inbox"></i></span><strong>暂无匹配数据</strong><small>调整搜索或筛选条件后重试</small></div>`;
   refreshIcons();
 }
@@ -1178,9 +1215,10 @@ function loadCreatedRecords() {
 }
 
 function updateWorkbenchCounts() {
+  const pendingDispatchCount = moduleCatalog.dispatch.items.filter((item) => item.status === "待派单").length;
   const labels = {
     waybill: `${moduleCatalog.waybill.items.length} 条记录`, plan: `${moduleCatalog.plan.items.length} 个任务`, route: `${moduleCatalog.route.items.length} 条线路`, "dispatch-management": `${moduleCatalog["dispatch-management"].items.filter((item) => item.status === "待匹配").length} 条待匹配`,
-    dispatch: `${moduleCatalog.dispatch.items.length} 条派单`,
+    dispatch: `${pendingDispatchCount} 条待派单`,
     capacity: `${moduleCatalog.capacity.items.length} 条运力`, vehicle: `${moduleCatalog.vehicle.items.length} 台车辆`, trailer: `${moduleCatalog.trailer.items.length} 台挂车`, driver: `${moduleCatalog.driver.items.length} 名司机`,
     customer: `${moduleCatalog.customer.items.length} 家客户`, reminder: `${moduleCatalog.reminder.items.length} 项待处理`,
   };
@@ -1188,6 +1226,8 @@ function updateWorkbenchCounts() {
     const node = $(`#moduleGrid [data-open-module="${moduleName}"] small`);
     if (node) node.textContent = label;
   });
+  const pendingMetric = $('#workbenchView [data-open-module="dispatch"][data-filter="待派单"] strong');
+  if (pendingMetric) pendingMetric.textContent = pendingDispatchCount;
   renderManagerDrawer();
 }
 
@@ -1558,6 +1598,12 @@ $("#moduleFilters").addEventListener("click", (event) => { const button = event.
 $("#moduleList").addEventListener("click", (event) => {
   const autoRun = event.target.closest("[data-auto-run]");
   if (autoRun) { showToast("自动派单任务已提交执行"); return; }
+  const startDispatch = event.target.closest("[data-start-dispatch]");
+  if (startDispatch) {
+    const dispatchId = startDispatch.dataset.startDispatch;
+    if (moduleCatalog.dispatch.items.some((item) => item.id === dispatchId)) openEntry("dispatch", dispatchId);
+    return;
+  }
   const button = event.target.closest("[data-module-detail]");
   if (!button) return;
   const item = moduleCatalog[state.currentModule].items.find((entry) => entry.id === button.dataset.moduleDetail);
@@ -1584,6 +1630,7 @@ $("#readAllButton").addEventListener("click", () => { messages.forEach((item) =>
 
 loadSharedCatalog();
 loadCreatedRecords();
+ensurePendingDispatchSamples();
 rebuildDispatchManagementCatalog();
 updateWorkbenchCounts();
 renderWorkbench();

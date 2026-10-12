@@ -22,20 +22,30 @@
           <section class="nav-section active">
             <button class="nav-parent" type="button">
               <span class="nav-icon">▣</span>
-              计划管理与派发
+              计划与派单
             </button>
             <button class="nav-child" data-page="waybill" type="button">计划管理</button>
-            <button class="nav-child" data-page="fixed-routes" type="button">固定线路管理</button>
             <button class="nav-child" data-page="dispatch-management" type="button">派单管理</button>
             <button class="nav-child" data-page="dispatch-list" type="button">派单列表</button>
             <button class="nav-child" data-page="capacity-management" type="button">运力管理</button>
           </section>
           <section class="nav-section">
             <button class="nav-parent" type="button">
+              <span class="nav-icon"><i data-lucide="route" aria-hidden="true"></i></span>
+              线路管理
+            </button>
+            <button class="nav-child" data-page="fixed-routes" type="button">固定线路管理</button>
+          </section>
+          <section class="nav-section">
+            <button class="nav-parent" type="button">
               <span class="nav-icon">▤</span>
               车辆管理
             </button>
-            <button class="nav-child" data-page="vehicle-archives" type="button">车辆档案管理</button>
+            <button class="nav-child nav-child-alert" data-page="vehicle-archives" id="vehicleArchiveNav" type="button" aria-describedby="vehicleInsuranceExpiredTooltip">
+              <span>车辆档案管理</span>
+              <span class="nav-alert-count" id="vehicleInsuranceExpiredBadge" aria-label="保险过期数量" hidden>0</span>
+              <span class="nav-alert-tooltip" id="vehicleInsuranceExpiredTooltip" role="tooltip" hidden></span>
+            </button>
             <button class="nav-child" data-page="trailer-archives" type="button">挂车档案管理</button>
           </section>
           <section class="nav-section">
@@ -43,7 +53,11 @@
               <span class="nav-icon">♙</span>
               司机管理
             </button>
-            <button class="nav-child" data-page="driver-archives" type="button">司机档案管理</button>
+            <button class="nav-child nav-child-alert" data-page="driver-archives" id="driverArchiveNav" type="button" aria-describedby="driverCredentialExpiredTooltip">
+              <span>司机档案管理</span>
+              <span class="nav-alert-count" id="driverCredentialExpiredBadge" aria-label="证件过期数量" hidden>0</span>
+              <span class="nav-alert-tooltip" id="driverCredentialExpiredTooltip" role="tooltip" hidden></span>
+            </button>
           </section>
           <section class="nav-section">
             <button class="nav-parent" type="button"><span class="nav-icon">￥</span>财务管理</button>
@@ -54,7 +68,6 @@
             <button class="nav-child" data-page="customer-archives" type="button">客户管理</button>
             <button class="nav-child" data-page="reminder-templates" type="button">消息提醒模板</button>
           </section>
-          <button class="nav-item" type="button"><span class="nav-icon">□</span>办公管理</button>
           <section class="nav-section">
             <button class="nav-parent" type="button"><span class="nav-icon">⚙</span>系统配置</button>
             <button class="nav-child" data-page="auto-dispatch-config" type="button">自动派单配置</button>
@@ -72,9 +85,30 @@
           <div class="topbar-actions">
             <a class="mobile-entry admin-mobile-entry" href="admin-mobile.html" target="_blank">管理移动端</a>
             <a class="mobile-entry" href="mobile.html" target="_blank">司机移动端</a>
-            <div class="user-chip">
-              <span class="status-dot"></span>
-              运营中心
+            <div class="user-account-wrap">
+              <button class="user-account" id="userAccountButton" type="button" aria-label="当前用户：张调度，已登录" aria-haspopup="menu" aria-expanded="false" aria-controls="userAccountMenu">
+                <span class="user-avatar" aria-hidden="true"><i data-lucide="user-round"></i></span>
+                <span class="user-account-copy">
+                  <strong>张调度</strong>
+                  <small><i class="user-login-dot" aria-hidden="true"></i>已登录</small>
+                </span>
+                <i class="user-account-chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+              </button>
+              <div class="user-account-menu" id="userAccountMenu" role="menu" aria-label="账户操作" hidden>
+                <div class="user-account-menu-head">
+                  <strong>张调度</strong>
+                  <span>当前身份：调度员</span>
+                </div>
+                <button type="button" role="menuitem" data-user-action="switch">
+                  <i data-lucide="users-round" aria-hidden="true"></i>
+                  <span><strong>切换身份</strong><small>体验其他岗位视角</small></span>
+                </button>
+                <button class="danger" type="button" role="menuitem" data-user-action="logout">
+                  <i data-lucide="log-out" aria-hidden="true"></i>
+                  <span><strong>退出登录</strong><small>返回登录页面</small></span>
+                </button>
+              </div>
+              <div class="user-action-feedback" id="userActionFeedback" role="status" aria-live="polite" hidden></div>
             </div>
           </div>
         </header>
@@ -243,7 +277,7 @@
             <div class="dispatch-detail-page-heading">
               <div>
                 <button class="btn quiet dispatch-detail-back" id="planTaskDetailBackBtn" type="button"><i data-lucide="arrow-left" aria-hidden="true"></i>返回计划任务列表</button>
-                <div class="dispatch-detail-page-title"><span class="page-eyebrow">计划管理与派发 / 计划管理 / 详情</span><h2>计划 / 派单详情</h2><p id="planTaskDetailPageSubtitle">查看计划信息与派单情况</p></div>
+                <div class="dispatch-detail-page-title"><span class="page-eyebrow">计划与派单 / 计划管理 / 详情</span><h2>计划 / 派单详情</h2><p id="planTaskDetailPageSubtitle">查看计划信息与派单情况</p></div>
               </div>
             </div>
             <div id="planTaskDetailPageContent" class="dispatch-detail-page-content"></div>
@@ -302,7 +336,7 @@
               </div>
             </section>
 
-            <dialog class="add-dialog vehicle-dialog route-dialog admin-form-dialog" id="routeDialog" data-breadcrumb="计划管理与派发 / 固定线路管理 / 线路建档">
+            <dialog class="add-dialog vehicle-dialog route-dialog admin-form-dialog" id="routeDialog" data-breadcrumb="线路管理 / 固定线路管理 / 线路建档">
               <form id="routeForm">
                 <header class="vehicle-dialog-header"><div><strong id="routeFormTitle">新增固定线路</strong><span>预配置线路收入和司机提成规则，开运单时可直接引用</span></div><button aria-label="关闭" class="icon-btn" id="closeRouteFormBtn" type="button">×</button></header>
                 <nav class="admin-section-nav" aria-label="线路表单分组"><button type="button" class="is-active">基础信息</button><button type="button">收入与提成</button><button type="button">关联配置</button></nav>
@@ -331,7 +365,7 @@
               </form>
             </dialog>
 
-            <dialog class="vehicle-dialog admin-form-dialog project-dialog" id="projectDialog" data-breadcrumb="计划管理与派发 / 固定线路管理 / 项目建档">
+            <dialog class="vehicle-dialog admin-form-dialog project-dialog" id="projectDialog" data-breadcrumb="线路管理 / 固定线路管理 / 项目建档">
               <form id="projectForm">
                 <header class="vehicle-dialog-header"><div><strong>添加项目</strong><span>项目会归属到选定客户，并可用于固定线路和计划任务</span></div><button aria-label="关闭" class="icon-btn" id="closeProjectFormBtn" type="button">×</button></header>
                 <div class="driver-form-body admin-form-scroll">
@@ -378,7 +412,7 @@
             </section>
             <footer class="pagination" aria-label="派单列表分页"><label>每页条数<select id="dispatchPageSize"><option value="10" selected>10</option><option value="20">20</option><option value="50">50</option></select></label><div class="page-controls"><button id="dispatchPrevPage" type="button" disabled>上一页</button><button class="page-current" id="dispatchCurrentPage" type="button">1</button><button id="dispatchNextPage" type="button" disabled>下一页</button><label>跳至<input id="dispatchPageJump" type="number" min="1" value="1" />页</label><span class="total-records" id="dispatchTotalText">共 0 条记录</span></div></footer>
 
-            <dialog class="add-dialog vehicle-dialog dispatch-dialog admin-form-dialog" id="dispatchDialog" data-breadcrumb="计划管理与派发 / 派单列表 / 新建派单" data-presentation="page"><form id="dispatchForm">
+            <dialog class="add-dialog vehicle-dialog dispatch-dialog admin-form-dialog" id="dispatchDialog" data-breadcrumb="计划与派单 / 派单列表 / 新建派单" data-presentation="page"><form id="dispatchForm">
               <header class="vehicle-dialog-header"><div><strong id="dispatchFormTitle">新建派单</strong><span id="dispatchFormDescription">选择已有运单并分配司机、车辆，提交后推送至司机微信小程序</span></div><button aria-label="关闭" class="icon-btn" id="closeDispatchFormBtn" type="button">×</button></header>
               <div class="driver-form-body"><section class="driver-form-section"><h3>选择运单</h3><div class="form-grid">
                 <label class="field required-field dispatch-waybill-picker"><span class="field-label">运单号</span><select name="waybillId" id="dispatchWaybillSelect" required><option value="">请选择已有运单</option></select></label>
@@ -398,7 +432,7 @@
             <div class="dispatch-detail-page-heading">
               <div>
                 <button class="btn quiet dispatch-detail-back" id="dispatchDetailBackBtn" type="button"><i data-lucide="arrow-left" aria-hidden="true"></i>返回派单列表</button>
-                <div class="dispatch-detail-page-title"><span class="page-eyebrow">计划管理与派发 / 派单列表 / 派单详情</span><h2>派单详情</h2><p id="dispatchDetailPageSubtitle">查看运输安排、节点上报与现场资料</p></div>
+                <div class="dispatch-detail-page-title"><span class="page-eyebrow">计划与派单 / 派单列表 / 派单详情</span><h2>派单详情</h2><p id="dispatchDetailPageSubtitle">查看运输安排、节点上报与现场资料</p></div>
               </div>
               <div class="dispatch-detail-page-actions"><button class="btn primary" id="dispatchDetailEditBtn" type="button"><i data-lucide="pencil" aria-hidden="true"></i>编辑派单</button></div>
             </div>
@@ -410,7 +444,7 @@
           </section>
 
           <section class="page-view" id="capacityPage">
-            <div class="capacity-management-heading"><div><span class="page-eyebrow">计划管理与派发 / 运力状态</span><h2>运力管理</h2><p>集中查看司机、车辆、挂车与当前任务状态</p></div><span class="live-badge"><i></i>实时状态</span></div>
+            <div class="capacity-management-heading"><div><span class="page-eyebrow">计划与派单 / 运力状态</span><h2>运力管理</h2><p>集中查看司机、车辆、挂车与当前任务状态</p></div><span class="live-badge"><i></i>实时状态</span></div>
             <div class="capacity-management-summary" id="capacityManagementSummary"></div>
             <form class="query-panel query-collapsed" id="capacityQueryForm">
               <div class="query-grid capacity-query-grid">
@@ -427,7 +461,7 @@
           <section class="page-view" id="dispatchManagementPage">
             <header class="dispatch-management-heading">
               <div>
-                <span class="page-eyebrow">计划管理与派发 / 调度工作台</span>
+                <span class="page-eyebrow">计划与派单 / 调度工作台</span>
                 <h2>派单管理</h2>
                 <span class="dispatch-management-live"><i></i><span id="dispatchManagementUpdatedAt">实时同步</span></span>
               </div>
@@ -510,7 +544,7 @@
 
           <section class="page-view" id="autoDispatchPage">
             <div class="auto-heading">
-              <div><div class="auto-eyebrow">计划管理与派发 / 智能调度 <span id="autoExecutionBadge">自动执行中</span></div><h2>自动派单</h2></div>
+              <div><div class="auto-eyebrow">计划与派单 / 智能调度 <span id="autoExecutionBadge">自动执行中</span></div><h2>自动派单</h2></div>
               <div class="auto-heading-actions"><button class="btn quiet" data-page="auto-dispatch-config" title="查看规则说明" type="button">自动派单配置</button><button class="btn primary" id="autoRunBtn" type="button">立即执行</button></div>
             </div>
             <div class="auto-view-tabs" role="tablist" aria-label="自动派单工作区"><button class="active" data-auto-view="dispatch" role="tab" aria-selected="true" type="button">自动派单</button><button data-auto-view="simulator" role="tab" aria-selected="false" type="button">派单模拟器</button></div>
@@ -796,7 +830,7 @@
           </section>
 
           <section class="page-view" id="vehiclePage">
-            <div class="vehicle-dashboard" id="vehicleReminderCards"></div>
+            <section class="vehicle-dashboard" id="vehicleReminderCards" aria-labelledby="vehicleInsuranceSummaryTitle"></section>
 
             <form class="query-panel query-collapsed" id="vehicleQueryForm">
               <div class="query-grid vehicle-query-grid">
@@ -1434,7 +1468,7 @@
       </main>
     </div>
 
-    <dialog class="add-dialog waybill-dialog admin-form-dialog" id="addDialog" data-breadcrumb="计划管理与派发 / 计划管理 / 运单建档">
+    <dialog class="add-dialog waybill-dialog admin-form-dialog" id="addDialog" data-breadcrumb="计划与派单 / 计划管理 / 运单建档">
       <form id="waybillForm">
         <header class="vehicle-dialog-header">
           <div>
@@ -1496,7 +1530,7 @@
       </form>
     </dialog>
 
-    <dialog class="add-dialog plan-task-dialog admin-form-dialog" id="planTaskDialog" data-breadcrumb="计划管理与派发 / 计划管理 / 新建计划任务">
+    <dialog class="add-dialog plan-task-dialog admin-form-dialog" id="planTaskDialog" data-breadcrumb="计划与派单 / 计划管理 / 新建计划任务">
       <form id="planTaskForm">
         <header class="vehicle-dialog-header"><div><strong>新建计划任务</strong><span>创建后进入待派发池，可由自动派发或调度员手动派发</span></div><button aria-label="关闭" class="icon-btn" id="closePlanTaskBtn" type="button">×</button></header>
         <nav class="plan-task-tabs" aria-label="计划任务创建方式"><button class="active" data-plan-mode="single" type="button">逐条新建</button><button data-plan-mode="batch" type="button">批量导入</button></nav>

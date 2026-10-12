@@ -2,9 +2,14 @@ const waybills = [
   {
     waybillNo: "WB20260916001",
     taskType: "提空装货",
+    executionTime: "2026-09-16T08:00",
+    dispatchMode: "auto",
     orderDate: "2026-09-16",
     customerId: "KH-HM",
     customerName: "华贸",
+    projectId: "PR-HM-BYD",
+    projectName: "比亚迪",
+    routeId: "XL-001",
     billNo: "BL-NB26091601",
     loadAddress: "宁波北仑港区二期 / 江北仓",
     dispatchNo: "PC-260916-A01",
@@ -29,9 +34,14 @@ const waybills = [
   {
     waybillNo: "WB20260916002",
     taskType: "提重送货",
+    executionTime: "2026-09-17T07:30",
+    dispatchMode: "manual",
     orderDate: "2026-09-16",
     customerId: "KH-LG",
     customerName: "陆港多联",
+    projectId: "PR-LG-TH",
+    projectName: "提箱装货",
+    routeId: "XL-002",
     billNo: "BL-SH26091607",
     loadAddress: "上海洋山港 / 昆山综合保税区",
     dispatchNo: "PC-260916-B03",
@@ -56,9 +66,14 @@ const waybills = [
   {
     waybillNo: "WB20260916003",
     taskType: "排空箱（A→B）",
+    executionTime: "2026-09-16T18:00",
+    dispatchMode: "auto",
     orderDate: "2026-09-15",
     customerId: "KH-ZT",
     customerName: "中铁联集项目",
+    projectId: "PR-ZT-X387",
+    projectName: "X387",
+    routeId: "XL-003",
     billNo: "BL-HZ26091518",
     loadAddress: "杭州萧山仓 / 宁波梅山码头",
     dispatchNo: "PC-260916-C02",
@@ -83,9 +98,14 @@ const waybills = [
   {
     waybillNo: "WB20260916004",
     taskType: "排重箱（A→B）",
+    executionTime: "2026-09-18T14:00",
+    dispatchMode: "manual",
     orderDate: "2026-09-14",
     customerId: "KH-ZT",
     customerName: "中铁联集项目",
+    projectId: "PR-ZT-X8588",
+    projectName: "X8588",
+    routeId: "XL-004",
     billNo: "BL-SZ26091409",
     loadAddress: "苏州工业园区 / 上海外高桥",
     dispatchNo: "PC-260916-D05",
@@ -190,6 +210,54 @@ const queryForm = document.querySelector("#queryForm");
 const resultText = document.querySelector("#resultText");
 const pageTitle = document.querySelector("#pageTitle");
 const pageKicker = document.querySelector("#pageKicker");
+const userAccountWrap = document.querySelector(".user-account-wrap");
+const userAccountButton = document.querySelector("#userAccountButton");
+const userAccountMenu = document.querySelector("#userAccountMenu");
+const userActionFeedback = document.querySelector("#userActionFeedback");
+let userActionFeedbackTimer;
+
+function setUserAccountMenu(open) {
+  if (!userAccountButton || !userAccountMenu) return;
+  userAccountButton.setAttribute("aria-expanded", String(open));
+  userAccountMenu.hidden = !open;
+}
+
+function showUserActionFeedback(action) {
+  if (!userActionFeedback) return;
+  const messages = {
+    switch: "身份切换功能演示，当前仍为张调度",
+    logout: "退出登录功能演示，当前登录状态未改变",
+  };
+  userActionFeedback.textContent = messages[action] || "操作演示完成";
+  userActionFeedback.hidden = false;
+  window.clearTimeout(userActionFeedbackTimer);
+  userActionFeedbackTimer = window.setTimeout(() => {
+    userActionFeedback.hidden = true;
+  }, 2600);
+}
+
+userAccountButton?.addEventListener("click", () => {
+  const willOpen = userAccountButton.getAttribute("aria-expanded") !== "true";
+  if (willOpen && userActionFeedback) userActionFeedback.hidden = true;
+  setUserAccountMenu(willOpen);
+});
+
+userAccountMenu?.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-user-action]");
+  if (!actionButton) return;
+  setUserAccountMenu(false);
+  showUserActionFeedback(actionButton.dataset.userAction);
+});
+
+document.addEventListener("click", (event) => {
+  if (userAccountWrap && !userAccountWrap.contains(event.target)) setUserAccountMenu(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || userAccountButton?.getAttribute("aria-expanded") !== "true") return;
+  setUserAccountMenu(false);
+  userAccountButton.focus();
+});
 const REMINDER_TEMPLATE_STORAGE_KEY = "container-logistics-reminder-templates-v1";
 const reminderTemplateSeed = [
   { id: "NT-001", code: "VEHICLE_ARRIVAL", name: "车辆到达仓库提醒", eventType: "车辆到达", scope: "全部车队", triggerTiming: "immediate", offsetMinutes: 0, sendTime: "09:00", recipients: ["调度员"], channels: ["站内消息", "司机移动端"], forceLogic: "普通提醒", repeatInterval: "不重复", maxRepeats: 1, enabled: true, title: "车辆已到达{{当前节点}}", content: "车辆 {{车牌号}} 已到达 {{当前节点}}，请及时安排下一步作业。", updatedAt: "2026-09-18 10:20" },
@@ -235,14 +303,14 @@ const pageViews = {
 const pageMeta = {
   home: { title: "首页看板", kicker: "运营中心 / 全局驾驶舱", view: "dashboard", navPage: "vehicle-dashboard" },
   "vehicle-dashboard": { title: "首页看板", kicker: "运营中心 / 全局驾驶舱", view: "dashboard", navPage: "vehicle-dashboard" },
-  waybill: { title: "计划管理", kicker: "计划管理与派发 / 计划任务", view: "waybill" },
-  "fixed-routes": { title: "固定线路管理", kicker: "计划管理与派发 / 固定线路", view: "route" },
-  "dispatch-management": { title: "派单管理", kicker: "计划管理与派发 / 调度工作台", view: "dispatchManagement" },
-  "dispatch-list": { title: "派单列表", kicker: "计划管理与派发 / 派单调度", view: "dispatch" },
-  "dispatch-detail": { title: "派单详情", kicker: "计划管理与派发 / 派单列表 / 派单详情", view: "dispatchDetail", navPage: "dispatch-list" },
-  "plan-task-detail": { title: "计划 / 派单详情", kicker: "计划管理与派发 / 计划管理 / 详情", view: "planTaskDetail", navPage: "waybill" },
-  "capacity-management": { title: "运力管理", kicker: "计划管理与派发 / 运力状态", view: "capacity" },
-  "auto-dispatch": { title: "自动派单", kicker: "计划管理与派发 / 智能调度", view: "autoDispatch" },
+  waybill: { title: "计划管理", kicker: "计划与派单 / 计划任务", view: "waybill" },
+  "fixed-routes": { title: "固定线路管理", kicker: "线路管理 / 固定线路", view: "route" },
+  "dispatch-management": { title: "派单管理", kicker: "计划与派单 / 调度工作台", view: "dispatchManagement" },
+  "dispatch-list": { title: "派单列表", kicker: "计划与派单 / 派单调度", view: "dispatch" },
+  "dispatch-detail": { title: "派单详情", kicker: "计划与派单 / 派单列表 / 派单详情", view: "dispatchDetail", navPage: "dispatch-list" },
+  "plan-task-detail": { title: "计划 / 派单详情", kicker: "计划与派单 / 计划管理 / 详情", view: "planTaskDetail", navPage: "waybill" },
+  "capacity-management": { title: "运力管理", kicker: "计划与派单 / 运力状态", view: "capacity" },
+  "auto-dispatch": { title: "自动派单", kicker: "计划与派单 / 智能调度", view: "autoDispatch" },
   "auto-dispatch-config": { title: "自动派单配置", kicker: "系统配置 / 自动派单", view: "autoDispatchConfig" },
   "finance-reports": { title: "运输成本台账", kicker: "财务管理 / 运输成本台账", view: "finance" },
   "customer-archives": { title: "客户管理", kicker: "基础资料 / 客户档案", view: "customer" },
@@ -707,12 +775,17 @@ const fixedRoutes = [
   { id: "XL-006", routeCode: "XL-ZT-JYT", customerId: "KH-ZT", customerName: "中铁联集项目", projectId: "PR-ZT-JYT", projectName: "捷运通BYD", routeName: "北仑港—绍兴比亚迪", origin: "宁波北仑港", destination: "北仑三期堆场", pickupPoint: "北仑港空箱区", loadingPoint: "绍兴比亚迪基地", unloadingPoint: "宁波铁路北站", dropoffPoint: "北仑三期堆场", viaPoints: "杭甬高速", mileage: 78.6, routeState: "启用", estimatedRevenue: 3050, baseFreight: 2740, commissionType: "rate", commissionValue: 14, commissionRemark: "按预估收入 14% 计提", defaultVehicle: "浙B·M6681", defaultDriver: "李强", remark: "捷运通 BYD 项目线路" },
   { id: "XL-007", routeCode: "XL-ZT-PP", customerId: "KH-ZT", customerName: "中铁联集项目", projectId: "PR-ZT-PP", projectName: "聚丙烯", routeName: "梅山港—镇海石化仓", origin: "宁波梅山港", destination: "梅山保税港区", pickupPoint: "梅山港空箱区", loadingPoint: "镇海石化仓", unloadingPoint: "金华南站", dropoffPoint: "梅山保税港区", viaPoints: "宁波绕城高速", mileage: 63.9, routeState: "启用", estimatedRevenue: 2780, baseFreight: 2490, commissionType: "fixed", commissionValue: 380, commissionRemark: "化工品运输按固定标准计提", defaultVehicle: "浙B·R5108", defaultDriver: "孙磊", remark: "聚丙烯项目固定线路" },
 ];
+const fixedRouteDemoDefaults = new Map(fixedRoutes.map((route) => [route.id, { ...route }]));
 
 const ROUTE_STORAGE_KEY = "container-logistics-fixed-routes-v1";
 try {
   const storedRoutes = JSON.parse(localStorage.getItem(ROUTE_STORAGE_KEY) || "null");
   if (Array.isArray(storedRoutes)) {
-    fixedRoutes.splice(0, fixedRoutes.length, ...storedRoutes.map((route) => ({ ...route, mileage: route.mileage === "" || route.mileage === null || route.mileage === undefined ? "" : Number(route.mileage) || 0 })));
+    fixedRoutes.splice(0, fixedRoutes.length, ...storedRoutes.map((route) => ({
+      ...(fixedRouteDemoDefaults.get(route.id) || {}),
+      ...route,
+      mileage: route.mileage === "" || route.mileage === null || route.mileage === undefined ? "" : Number(route.mileage) || 0,
+    })));
   }
 } catch (error) {
   console.warn("固定线路数据读取失败，使用初始数据。", error);
@@ -756,11 +829,11 @@ function getNextProjectId(customerId = "") {
 
 
 const dispatchSeed = [
-  { id: "PD-1001", waybillNo: "WB20260916001", dispatchMode: "auto", orderDate: "2026-09-16", routeId: "XL-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", dispatchTime: "2026-09-16 08:35", driverId: "SJ-1001", driverName: "王海", phone: "13800008881", vehicleId: "浙B·K7812", status: "运输中", currentNode: "在途", boxes: "TCLU8374621 / 40HQ", estimatedRevenue: 2860, commission: 420, note: "上午装柜", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 08:35", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已提货", time: "2026-09-16 10:12", desc: "司机已完成提货，上传装柜现场照片", photos: ["装柜现场-001.jpg"] }, { node: "在途", time: "2026-09-16 11:05", desc: "车辆驶离装货地，运输中", photos: ["运输途中-001.jpg"] }] },
-  { id: "PD-1002", waybillNo: "WB20260916002", orderDate: "2026-09-16", routeId: "XL-002", routeName: "洋山港至昆山保税区", origin: "上海洋山港", destination: "昆山综合保税区", dispatchTime: "2026-09-16 09:10", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", status: "已派单", currentNode: "待提货", boxes: "MSKU4920183 / MSKU4920184", estimatedRevenue: 3520, commission: 563.2, note: "双拖作业，按现场指引进港", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 09:10", desc: "派单已推送至司机微信小程序", photos: [] }] },
-  { id: "PD-1003", waybillNo: "WB20260916003", dispatchMode: "auto", orderDate: "2026-09-15", routeId: "XL-003", routeName: "萧山仓至梅山码头", origin: "杭州萧山仓", destination: "宁波梅山码头", dispatchTime: "2026-09-15 16:40", driverId: "SJ-1004", driverName: "陈涛", phone: "13600002228", vehicleId: "浙A·F2190", status: "已完成", currentNode: "已送达", boxes: "CMAU6502739 / 40GP", estimatedRevenue: 2550, commission: 350, note: "夜间进港", pushed: true, timeline: [{ node: "已派单", time: "2026-09-15 16:40", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已提货", time: "2026-09-15 18:22", desc: "完成提货", photos: ["提货现场-003.jpg"] }, { node: "已送达", time: "2026-09-16 06:55", desc: "货柜已送达梅山码头", photos: ["送达凭证-003.jpg"] }] },
-  { id: "PD-1004", waybillNo: "WB20260916004", orderDate: "2026-09-14", routeId: "XL-004", routeName: "苏州园区至外高桥", origin: "苏州工业园区", destination: "上海外高桥五期", dispatchTime: "2026-09-14 14:20", driverId: "SJ-1003", driverName: "刘军", phone: "13700003335", vehicleId: "苏E·T5568", status: "取消", currentNode: "待派单", boxes: "OOLU3087642 / 20GP", estimatedRevenue: 1980, commission: 297, note: "线路价格调整，原派单取消", pushed: true, timeline: [{ node: "已派单", time: "2026-09-14 14:20", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "取消", time: "2026-09-14 15:05", desc: "未开始提货，后台撤销派单", photos: [] }] },
-  { id: "PD-1005", waybillNo: "WB20260916005", orderDate: "2026-09-16", routeId: "XL-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", dispatchTime: "", driverId: "", driverName: "待分配", phone: "-", vehicleId: "", status: "待派单", currentNode: "待派单", boxes: "待装箱", estimatedRevenue: 2860, commission: 420, note: "等待调度", pushed: false, timeline: [] },
+  { id: "PD-1001", waybillNo: "WB20260916001", planTaskNo: "PT-LEGACY-WB20260916001", taskType: "提空装货", dispatchMode: "auto", customerName: "华贸", projectName: "比亚迪", orderDate: "2026-09-16", routeId: "XL-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", dispatchTime: "2026-09-16 08:35", driverId: "SJ-1001", driverName: "王海", phone: "13800008881", vehicleId: "浙B·K7812", trailerId: "TR-001", vehicleType: "燃油车", status: "运输中", currentNode: "在途", boxes: "TCLU8374621 / 40HQ", estimatedRevenue: 2860, commission: 420, note: "上午装柜", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 08:35", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已提货", time: "2026-09-16 10:12", desc: "司机已完成提货，上传装柜现场照片", photos: ["装柜现场-001.jpg"] }, { node: "在途", time: "2026-09-16 11:05", desc: "车辆驶离装货地，运输中", photos: ["运输途中-001.jpg"] }] },
+  { id: "PD-1002", waybillNo: "WB20260916002", planTaskNo: "PT-LEGACY-WB20260916002", taskType: "提重送货", dispatchMode: "manual", customerName: "陆港多联", projectName: "提箱装货", orderDate: "2026-09-16", routeId: "XL-002", routeName: "洋山港至昆山保税区", origin: "上海洋山港", destination: "昆山综合保税区", dispatchTime: "2026-09-16 09:10", driverId: "SJ-1002", driverName: "赵亮", phone: "13900006662", vehicleId: "沪D·A9021", trailerId: "TR-002", vehicleType: "燃油车", status: "已派单", currentNode: "待提货", boxes: "MSKU4920183 / MSKU4920184", estimatedRevenue: 3520, commission: 563.2, note: "双拖作业，按现场指引进港", pushed: true, timeline: [{ node: "已派单", time: "2026-09-16 09:10", desc: "派单已推送至司机微信小程序", photos: [] }] },
+  { id: "PD-1003", waybillNo: "WB20260916003", planTaskNo: "PT-LEGACY-WB20260916003", taskType: "排空箱（A→B）", dispatchMode: "auto", customerName: "中铁联集项目", projectName: "X387", orderDate: "2026-09-15", routeId: "XL-003", routeName: "萧山仓至梅山码头", origin: "杭州萧山仓", destination: "宁波梅山码头", dispatchTime: "2026-09-15 16:40", driverId: "SJ-1004", driverName: "陈涛", phone: "13600002228", vehicleId: "浙A·F2190", trailerId: "TR-004", vehicleType: "燃油车", status: "已完成", currentNode: "已送达", boxes: "CMAU6502739 / 40GP", estimatedRevenue: 2550, commission: 350, note: "夜间进港", pushed: true, timeline: [{ node: "已派单", time: "2026-09-15 16:40", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "已提货", time: "2026-09-15 18:22", desc: "完成提货", photos: ["提货现场-003.jpg"] }, { node: "已送达", time: "2026-09-16 06:55", desc: "货柜已送达梅山码头", photos: ["送达凭证-003.jpg"] }] },
+  { id: "PD-1004", waybillNo: "WB20260916004", planTaskNo: "PT-LEGACY-WB20260916004", taskType: "排重箱（A→B）", dispatchMode: "manual", customerName: "中铁联集项目", projectName: "X8588", orderDate: "2026-09-14", routeId: "XL-004", routeName: "苏州园区至外高桥", origin: "苏州工业园区", destination: "上海外高桥五期", dispatchTime: "2026-09-14 14:20", driverId: "SJ-1003", driverName: "刘军", phone: "13700003335", vehicleId: "苏E·T5568", trailerId: "TR-003", vehicleType: "燃油车", status: "取消", currentNode: "待派单", boxes: "OOLU3087642 / 20GP", estimatedRevenue: 1980, commission: 297, note: "线路价格调整，原派单取消", pushed: true, timeline: [{ node: "已派单", time: "2026-09-14 14:20", desc: "派单已推送至司机微信小程序", photos: [] }, { node: "取消", time: "2026-09-14 15:05", desc: "未开始提货，后台撤销派单", photos: [] }] },
+  { id: "PD-1005", waybillNo: "WB20260916005", planTaskNo: "PT-LEGACY-WB20260916005", taskType: "提空装货", dispatchMode: "pending", customerName: "华贸", projectName: "比亚迪", orderDate: "2026-09-16", routeId: "XL-001", routeName: "北仑港至江北仓", origin: "宁波北仑港区二期", destination: "宁波江北物流园", dispatchTime: "待调度", driverId: "", driverName: "待分配", phone: "待分配", vehicleId: "待分配", trailerId: "未绑定", vehicleType: "燃油车", status: "待派单", currentNode: "待派单", boxes: "待装箱", estimatedRevenue: 2860, commission: 420, note: "等待调度", pushed: false, timeline: [] },
 ];
 const dispatches = window.DispatchStore.load(dispatchSeed);
 const DISPATCH_VEHICLE_TYPES = ["LNG", "燃油车", "新能源车"];
@@ -779,10 +852,19 @@ function hydrateAdminDataSnapshot() {
     [routeAccountCatalog, snapshot.routeAccounts, "projectId"],
   ].forEach(([target, records, key, secondaryKey]) => {
     if (!Array.isArray(records)) return;
-    const recordKeys = new Set(records.map((record) => record?.[key]).filter(Boolean));
-    const secondaryKeys = new Set(secondaryKey ? records.map((record) => record?.[secondaryKey]).filter(Boolean) : []);
+    const defaultsByKey = new Map(target.map((record) => [record?.[key], record]).filter(([value]) => value));
+    const normalizedRecords = records.map((record) => {
+      const defaults = defaultsByKey.get(record?.[key]) || {};
+      const merged = { ...defaults, ...record };
+      Object.keys(defaults).forEach((field) => {
+        if (record?.[field] == null || ["", "undefined", "null", "nan"].includes(String(record[field]).trim().toLowerCase())) merged[field] = defaults[field];
+      });
+      return merged;
+    });
+    const recordKeys = new Set(normalizedRecords.map((record) => record?.[key]).filter(Boolean));
+    const secondaryKeys = new Set(secondaryKey ? normalizedRecords.map((record) => record?.[secondaryKey]).filter(Boolean) : []);
     const untouched = target.filter((record) => !recordKeys.has(record?.[key]) && (!secondaryKey || !secondaryKeys.has(record?.[secondaryKey])));
-    target.splice(0, target.length, ...records, ...untouched);
+    target.splice(0, target.length, ...normalizedRecords, ...untouched);
   });
 }
 
@@ -812,6 +894,12 @@ function getRouteMileageSnapshot(route) {
 
 function normalizeDispatchRecord(dispatch) {
   if (!dispatch || typeof dispatch !== "object") return dispatch;
+  const demoDefaults = dispatchSeed.find((item) => item.id === dispatch.id);
+  if (demoDefaults) {
+    Object.entries(demoDefaults).forEach(([field, value]) => {
+      if (dispatch[field] == null || ["", "undefined", "null", "nan"].includes(String(dispatch[field]).trim().toLowerCase())) dispatch[field] = value;
+    });
+  }
   dispatch.vehicleType = getDispatchVehicleType(dispatch);
   const route = fixedRoutes.find((item) => item.id === dispatch.routeId);
   if (!Object.prototype.hasOwnProperty.call(dispatch, "routeMileageSnapshot")) dispatch.routeMileageSnapshot = dispatch.status === "待派单" ? null : getRouteMileageSnapshot(route);
@@ -1075,6 +1163,22 @@ function normalize(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function businessText(value, fallback = "未维护") {
+  const text = String(value ?? "").trim();
+  return text && !["undefined", "null", "nan"].includes(text.toLowerCase()) ? text : fallback;
+}
+
+function businessCell(value, fallback = "未维护") {
+  return dashboardEscape(businessText(value, fallback));
+}
+
+function businessDateWithDays(value, fallback = "待补录") {
+  const dateText = businessText(value, "");
+  if (!dateText) return fallback;
+  const remainingDays = daysUntil(dateText);
+  return Number.isFinite(remainingDays) ? `${dashboardEscape(dateText)}（${remainingDays} 天）` : dashboardEscape(dateText);
+}
+
 function daysUntil(dateText) {
   const target = new Date(`${dateText}T00:00:00`);
   return Math.ceil((target - today) / 86400000);
@@ -1157,6 +1261,15 @@ function getTrailerLabel(trailerId = "") {
   return getTrailerById(trailerId)?.plateNo || "未绑定";
 }
 
+function getVehicleDriverLabel(vehicle) {
+  const archivedDriver = businessText(vehicle?.driver, "");
+  if (archivedDriver) return archivedDriver;
+  const assignedDriver = typeof dispatches !== "undefined"
+    ? [...dispatches].reverse().find((dispatch) => dispatch.vehicleId === vehicle?.plateNo && dispatch.driverName)
+    : null;
+  return assignedDriver ? [assignedDriver.driverName, assignedDriver.phone].filter(Boolean).join(" / ") : "未绑定司机";
+}
+
 function getWarningDays() {
   const form = document.querySelector("#vehicleQueryForm");
   const value = Number(new FormData(form).get("warningDays"));
@@ -1175,19 +1288,19 @@ function renderVehicleRows(rows, warningDays = 30) {
       const dueInfo = getDueInfo(vehicle, warningDays);
       return `
         <tr class="${dueInfo.rowClass}">
-          <td>${vehicle.plateNo}</td>
-          <td>${vehicle.vehicleType}</td>
-          <td>${getTrailerLabel(vehicle.trailerId)}</td>
-          <td>${vehicle.vin}</td>
-          <td>${vehicle.engineNo}</td>
-          <td>${vehicle.permitNo}</td>
-          <td>${vehicle.ownership}</td>
-          <td>${vehicle.driver}</td>
-          <td><span class="state-pill ${getVehicleStateClass(vehicle.vehicleState)}">${vehicle.vehicleState}</span></td>
-          <td>${vehicle.inspectionDue}</td>
-          <td>${vehicle.insuranceDue}</td>
+          <td>${businessCell(vehicle.plateNo, "待录入车牌")}</td>
+          <td>${businessCell(vehicle.vehicleType, "待维护车型")}</td>
+          <td>${businessCell(getTrailerLabel(vehicle.trailerId), "未绑定挂车")}</td>
+          <td>${businessCell(vehicle.vin, "待补录")}</td>
+          <td>${businessCell(vehicle.engineNo, "待补录")}</td>
+          <td>${businessCell(vehicle.permitNo, "待补录")}</td>
+          <td>${businessCell(vehicle.ownership, "待确认")}</td>
+          <td>${businessCell(getVehicleDriverLabel(vehicle), "未绑定司机")}</td>
+          <td><span class="state-pill ${getVehicleStateClass(vehicle.vehicleState)}">${businessCell(vehicle.vehicleState, "状态待确认")}</span></td>
+          <td>${businessCell(vehicle.inspectionDue, "待补录")}</td>
+          <td>${businessCell(vehicle.insuranceDue, "待补录")}</td>
           <td><span class="due-pill ${dueInfo.key}">${dueInfo.label}</span></td>
-          <td>${vehicle.attachments}</td>
+          <td>${businessCell(vehicle.attachments, "未上传")}</td>
           <td class="fixed-action-column">
             <div class="vehicle-action-group">
               <button class="link-btn" data-detail-plate="${vehicle.plateNo}" type="button">详情</button>
@@ -1210,29 +1323,29 @@ function renderReminderCards(warningDays = 30) {
     },
     { expired: 0, insurance: 0, inspection: 0, normal: 0 }
   );
+  const activeStatus = vehicleQueryForm.elements.dueStatus.value;
+  const renderCard = (status, className, label, count, description) => `
+    <button class="reminder-card ${className} ${activeStatus === status ? "is-active" : ""}" data-vehicle-due-status="${status}" type="button" aria-pressed="${activeStatus === status}">
+      <strong>${label}</strong>
+      <span>${count}</span>
+      <small>${description}</small>
+    </button>`;
 
   document.querySelector("#vehicleReminderCards").innerHTML = `
-    <div class="reminder-card expired">
-      <strong>已过期</strong>
-      <span>${counts.expired}</span>
-      <small>审验或保险已逾期</small>
-    </div>
-    <div class="reminder-card insurance">
-      <strong>保险即将到期</strong>
-      <span>${counts.insurance}</span>
-      <small>${warningDays} 天内保险到期</small>
-    </div>
-    <div class="reminder-card inspection">
-      <strong>审验即将到期</strong>
-      <span>${counts.inspection}</span>
-      <small>${warningDays} 天内审验到期</small>
-    </div>
-    <div class="reminder-card">
-      <strong>正常车辆</strong>
-      <span>${counts.normal}</span>
-      <small>暂无临期事项</small>
-    </div>
+    <header class="vehicle-dashboard-heading">
+      <h2 id="vehicleInsuranceSummaryTitle">车辆保险情况</h2>
+    </header>
+    ${renderCard("expired", "expired", "已过期", counts.expired, "审验或保险已逾期")}
+    ${renderCard("insurance", "insurance", "保险即将到期", counts.insurance, `${warningDays} 天内保险到期`)}
+    ${renderCard("inspection", "inspection", "审验即将到期", counts.inspection, `${warningDays} 天内审验到期`)}
+    ${renderCard("normal", "normal", "正常车辆", counts.normal, "暂无临期事项")}
   `;
+}
+
+function applyVehicleDueStatusFilter(status) {
+  vehicleQueryForm.elements.dueStatus.value = status;
+  vehicleCurrentPage = 1;
+  renderVehiclePage(getFilteredVehicles(), getWarningDays());
 }
 
 function renderVehicleDetailBase(vehicle) {
@@ -1298,12 +1411,12 @@ function renderVehicleDetailBase(vehicle) {
     },
   ];
 
-  document.querySelector("#detailVehicleTitle").textContent = vehicle.plateNo;
-  document.querySelector("#detailVehicleMeta").textContent = `${vehicle.vehicleType} / ${vehicle.ownership}`;
+  document.querySelector("#detailVehicleTitle").textContent = businessText(vehicle.plateNo, "待录入车牌");
+  document.querySelector("#detailVehicleMeta").textContent = `${businessText(vehicle.vehicleType, "待维护车型")} / ${businessText(vehicle.ownership, "待确认归属")}`;
   const detailVehicleState = document.querySelector("#detailVehicleState");
-  detailVehicleState.textContent = vehicle.vehicleState;
+  detailVehicleState.textContent = businessText(vehicle.vehicleState, "状态待确认");
   detailVehicleState.className = `state-pill ${getVehicleStateClass(vehicle.vehicleState)}`;
-  document.querySelector("#detailVehicleDriver").textContent = vehicle.driver || "—";
+  document.querySelector("#detailVehicleDriver").textContent = getVehicleDriverLabel(vehicle);
   document.querySelector("#detailVehicleFleet").textContent = vehicle.fleetName || vehicle.fleet || "—";
   document.querySelector("#detailVehicleInspectionDue").textContent = vehicle.inspectionDue || "—";
   document.querySelector("#detailVehicleInsuranceDue").textContent = vehicle.insuranceDue || "—";
@@ -1324,7 +1437,7 @@ function renderVehicleDetailBase(vehicle) {
                 ([label, value]) => `
                   <div class="detail-item">
                     <dt>${label}</dt>
-                    <dd>${value || "—"}</dd>
+                    <dd>${businessCell(value, "未维护")}</dd>
                   </div>
                 `
               )
@@ -1482,10 +1595,10 @@ function renderReminderRows(warningDays = 30, plateNo = selectedVehicle?.plateNo
             : "预约审验机构，登记下次到期日期";
       return `
         <tr class="${dueInfo.rowClass}">
-          <td>${vehicle.plateNo}</td>
-          <td>${vehicle.driver}</td>
-          <td>${vehicle.insuranceDue}（${daysUntil(vehicle.insuranceDue)} 天）</td>
-          <td>${vehicle.inspectionDue}（${daysUntil(vehicle.inspectionDue)} 天）</td>
+          <td>${businessCell(vehicle.plateNo, "待录入车牌")}</td>
+          <td>${businessCell(getVehicleDriverLabel(vehicle), "未绑定司机")}</td>
+          <td>${businessDateWithDays(vehicle.insuranceDue)}</td>
+          <td>${businessDateWithDays(vehicle.inspectionDue)}</td>
           <td><span class="due-pill ${dueInfo.key}">${dueInfo.label}</span></td>
           <td>${suggestion}</td>
         </tr>
@@ -1500,6 +1613,28 @@ function getFilteredVehicles() {
   return filterVehicles(new FormData(vehicleQueryForm));
 }
 
+function countExpiredVehicleInsurances(rows = vehicles, referenceDate = new Date()) {
+  const boundary = new Date(referenceDate);
+  boundary.setHours(0, 0, 0, 0);
+  return rows.filter((vehicle) => {
+    if (!vehicle.insuranceDue) return false;
+    const expiry = new Date(`${vehicle.insuranceDue}T00:00:00`);
+    return Number.isFinite(expiry.getTime()) && expiry < boundary;
+  }).length;
+}
+
+function renderVehicleInsuranceNavAlert(referenceDate = new Date()) {
+  const badge = document.querySelector("#vehicleInsuranceExpiredBadge");
+  const tooltip = document.querySelector("#vehicleInsuranceExpiredTooltip");
+  if (!badge || !tooltip) return;
+  const count = countExpiredVehicleInsurances(vehicles, referenceDate);
+  const message = `${count}个保险已过期，请及时处理`;
+  badge.textContent = String(count);
+  badge.hidden = count === 0;
+  tooltip.textContent = message;
+  tooltip.hidden = count === 0;
+}
+
 function renderVehiclePagination(total) {
   const totalPages = Math.max(1, Math.ceil(total / vehiclePageSize));
   vehicleCurrentPage = Math.min(Math.max(1, vehicleCurrentPage), totalPages);
@@ -1512,6 +1647,7 @@ function renderVehiclePagination(total) {
 
 function renderVehiclePage(rows = vehicles, warningDays = 30) {
   publishAdminDataSnapshot();
+  renderVehicleInsuranceNavAlert();
   vehiclePageSize = Number(vehiclePageSizeSelect.value) || 10;
   renderVehiclePagination(rows.length);
   const start = (vehicleCurrentPage - 1) * vehiclePageSize;
@@ -1911,6 +2047,27 @@ function getFilteredDrivers() {
   return filterDrivers(new FormData(driverQueryForm));
 }
 
+function countExpiredDriverCredentials(rows = drivers, referenceDate = new Date()) {
+  const boundary = new Date(referenceDate);
+  boundary.setHours(0, 0, 0, 0);
+  return rows.filter((driver) => [driver.licenseExpiry, driver.qualificationExpiry].some((date) => {
+    if (!date) return false;
+    const expiry = new Date(`${date}T00:00:00`);
+    return Number.isFinite(expiry.getTime()) && expiry < boundary;
+  })).length;
+}
+
+function renderDriverCredentialNavAlert(referenceDate = new Date()) {
+  const badge = document.querySelector("#driverCredentialExpiredBadge");
+  const tooltip = document.querySelector("#driverCredentialExpiredTooltip");
+  if (!badge || !tooltip) return;
+  const count = countExpiredDriverCredentials(drivers, referenceDate);
+  badge.textContent = String(count);
+  badge.hidden = count === 0;
+  tooltip.textContent = `${count}个证件已过期，请及时处理`;
+  tooltip.hidden = count === 0;
+}
+
 function renderDriverSummaryCards() {
   const ownDrivers = drivers.filter((driver) => driver.driverType === "自有司机");
   const attendanceCounts = {
@@ -2119,6 +2276,7 @@ function renderDriverPagination(total) {
 
 function renderDriverPage(rows = drivers) {
   publishAdminDataSnapshot();
+  renderDriverCredentialNavAlert();
   driverPageSize = Number(driverPageSizeSelect.value) || 10;
   renderDriverPagination(rows.length);
   const start = (driverCurrentPage - 1) * driverPageSize;
@@ -3029,7 +3187,7 @@ function updateDispatchFormFromWaybill() {
 
 function openDispatchForm() {
   dispatchDialog.dataset.presentation = "page";
-  dispatchDialog.dataset.breadcrumb = "计划管理与派发 / 派单列表 / 新建派单";
+  dispatchDialog.dataset.breadcrumb = "计划与派单 / 派单列表 / 新建派单";
   dispatchForm.dispatchMode = "create";
   dispatchForm.editingDispatchId = "";
   dispatchForm.reset();
@@ -3081,7 +3239,7 @@ function openDispatchEdit(dispatchId) {
 function closeDispatchForm() {
   if (dispatchDialog.open) dispatchDialog.close();
   dispatchDialog.dataset.presentation = "page";
-  dispatchDialog.dataset.breadcrumb = "计划管理与派发 / 派单列表 / 新建派单";
+  dispatchDialog.dataset.breadcrumb = "计划与派单 / 派单列表 / 新建派单";
   dispatchForm.dispatchMode = "create";
   dispatchForm.editingDispatchId = "";
   dispatchForm.reset();
@@ -4991,6 +5149,11 @@ vehicleQueryForm.addEventListener("submit", (event) => {
   const warningDays = Number(formData.get("warningDays")) || 30;
   vehicleCurrentPage = 1;
   renderVehiclePage(filterVehicles(formData), warningDays);
+});
+
+document.querySelector("#vehicleReminderCards").addEventListener("click", (event) => {
+  const card = event.target.closest("[data-vehicle-due-status]");
+  if (card) applyVehicleDueStatusFilter(card.dataset.vehicleDueStatus);
 });
 
 document.querySelector("#addVehicleBtn").addEventListener("click", () => {
