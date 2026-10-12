@@ -4048,7 +4048,7 @@ dialog.dispatch-dialog[data-presentation="drawer"]::backdrop {
 .plan-dispatch-mode-card:has(input:checked) strong { color:#2670df; }
 .plan-advance-field small { display:block; margin-top:5px; color:#a0aaba; font-size:11px; }
 @media (max-width: 760px) { .plan-dispatch-controls { grid-template-columns:1fr; } }
-.plan-task-table { min-width: 2030px; --fixed-action-width: 218px; }
+.plan-task-table { min-width: 1900px; --fixed-action-width: 218px; }
 .plan-task-table .danger-link { color: #b4535e; background: #fff2f3; }
 .plan-task-table .danger-link:hover { background: #ffe6e8; }
 .plan-task-table th:nth-child(1) { min-width: 210px; }

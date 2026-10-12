@@ -27,6 +27,12 @@ const routeOptionsEnd = app.indexOf("function getPlanTaskBoxOptions(", routeOpti
 assert.ok(routeOptionsStart >= 0 && routeOptionsEnd > routeOptionsStart, "缺少计划任务线路选项生成器");
 assert.doesNotMatch(app.slice(routeOptionsStart, routeOptionsEnd), /routeCode/);
 assert.match(html, /<th>计划任务<\/th><th>客户<\/th><th>项目<\/th><th>线路<\/th><th>线路节点<\/th>/);
+const planTableMarkup = html.slice(html.indexOf('class="fixed-action-table plan-task-table"'), html.indexOf("</table>", html.indexOf('class="fixed-action-table plan-task-table"')));
+assert.doesNotMatch(planTableMarkup, /派发模式/);
+const renderRowsStart = app.indexOf("function renderRows(");
+const renderRowsEnd = app.indexOf("function normalize(", renderRowsStart);
+assert.doesNotMatch(app.slice(renderRowsStart, renderRowsEnd), /dispatch-mode|const mode = auto/);
+assert.match(app.slice(renderRowsStart, renderRowsEnd), /colspan="11"/);
 assert.equal((html.match(/id="planTaskDetailPage"/g) || []).length, 1, "计划详情使用独立二级页面");
 assert.ok(html.includes('id="planTaskDetailBackBtn"'), "计划详情页应提供返回计划任务列表入口");
 assert.ok(html.includes('id="planTaskDetailPageContent"'), "计划详情页应有独立内容容器");

@@ -5,6 +5,8 @@ const html = fs.readFileSync("admin-mobile.html", "utf8");
 const script = fs.readFileSync("admin-mobile.js", "utf8");
 const css = fs.readFileSync("admin-mobile.css", "utf8");
 const desktop = fs.readFileSync("index.html", "utf8");
+const desktopScript = fs.readFileSync("app.js", "utf8");
+const customerScript = fs.readFileSync("customer.js", "utf8");
 
 assert.match(desktop, /href="admin-mobile\.html"[^>]*>管理移动端<\/a>\s*<a class="mobile-entry" href="mobile\.html"/);
 assert.match(html, /data-view="workbench"[\s\S]*data-view="messages"[\s\S]*data-view="profile"/);
@@ -46,7 +48,37 @@ assert.match(script, /function renderPlanDetail\(/);
 assert.match(script, /function renderRouteDetail\(/);
 assert.match(script, /编辑线路资料/);
 assert.match(script, /data-edit-route="\$\{h\(item\.id\)\}"/);
-assert.match(script, /dataset\.editRoute = item\.id/);
+assert.match(script, /function setDetailEditAction\(moduleName, recordId, label\)/);
+assert.match(script, /dataset\.editModule = moduleName/);
+assert.match(script, /data-edit-module="\$\{h\(sourceModule\)\}"/);
+assert.match(script, /function renderAssetDetail\(moduleName, item\)/);
+assert.match(script, /\["capacity", "vehicle", "trailer", "driver", "customer"\]\.includes\(state\.currentModule\)/);
+assert.match(script, /function buildAssetRecord\(moduleName, values\)/);
+assert.match(script, /function rebuildCapacityCatalog\(/);
+assert.match(script, /function rebuildDispatchManagementCatalog\(\)/);
+assert.match(script, /function renderDispatchManagementDetail\(item\)/);
+assert.match(script, /function renderDispatchDetail\(item\)/);
+assert.match(script, /function buildDispatchRecord\(values\)/);
+assert.match(script, /state\.currentModule === "dispatch-management"/);
+assert.match(script, /state\.currentModule === "dispatch"/);
+for (const fieldName of ["waybillId", "projectId", "routeId", "driverId", "vehicleId", "trailerId", "vehicleType", "note"]) {
+  assert.ok(script.includes(`name: "${fieldName}"`), `移动管理端派单表单缺少后台字段 ${fieldName}`);
+}
+for (const detailLabel of ["任务与派单信息", "司机与车辆", "线路与箱信息", "运输节点记录", "其他后台字段"]) {
+  assert.ok(script.includes(detailLabel), `派单详情缺少 ${detailLabel}`);
+}
+assert.match(script, /snapshot\.waybills = sharedWaybills\.map/, "派单保存后应同步关联运单");
+assert.match(script, /\["capacity", "dispatch-management"\]\.includes\(moduleName\)/, "运力和派单管理不应显示无效新增按钮");
+assert.match(script, /function certificationStatusLabel\(status\)/);
+assert.match(script, /重新选择文件将替换现有附件/);
+assert.match(script, /\.filter\(\(\[, value\]\) => !\(value instanceof File\) \|\| Boolean\(value\.name\)\)/, "编辑时未重新选择附件应保留后台原值");
+assert.match(script, /editAsset && editAsset\.id !== "detailActionButton"/, "详情顶部编辑入口不应被重复处理");
+assert.match(desktopScript, /function hydrateAdminDataSnapshot\(\)/);
+for (const collection of ["vehicles", "trailers", "drivers", "fixedRoutes"]) {
+  assert.match(desktopScript, new RegExp(`\\[${collection}, snapshot\\.${collection}, "[^"]+"`), `后台启动时未恢复 ${collection} 共享数据`);
+}
+assert.match(desktopScript, /const untouched = target\.filter/, "后台恢复移动端快照时应保留尚未同步的原始档案");
+assert.match(customerScript, /const sharedCustomers = window\.AdminDataBridge\?\.read\?\.\(\)\?\.customers/);
 assert.match(css, /\.detail-edit-button\s*\{[^}]*background:\s*var\(--primary\)/);
 assert.match(css, /\.detail-action-bar\s*\{[^}]*display:\s*flex/);
 assert.match(script, /function openDetail\(item\)[\s\S]*?\$\("#moduleView"\)\.classList\.remove\("open"\)[\s\S]*?\$\("#managerDetailView"\)\.classList\.add\("open"\)/, "查看详情应切换到独立的二级详情页");

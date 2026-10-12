@@ -39,6 +39,12 @@
   }
 
   function loadCustomers() {
+    const sharedCustomers = window.AdminDataBridge?.read?.()?.customers;
+    if (Array.isArray(sharedCustomers) && sharedCustomers.every((item) => item && typeof item.customerNo === "string" && typeof item.customerName === "string")) {
+      const normalized = sharedCustomers.map(normalizeCustomer);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      return normalized;
+    }
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (Array.isArray(saved) && saved.every((item) => item && typeof item.customerNo === "string" && typeof item.customerName === "string")) {

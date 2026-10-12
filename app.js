@@ -766,6 +766,28 @@ const dispatches = window.DispatchStore.load(dispatchSeed);
 const DISPATCH_VEHICLE_TYPES = ["LNG", "燃油车", "新能源车"];
 const DEFAULT_AUTO_DISPATCH_IDS = new Set(["PD-1001", "PD-1003"]);
 
+function hydrateAdminDataSnapshot() {
+  const snapshot = window.AdminDataBridge?.read?.();
+  if (!snapshot) return;
+  [
+    [waybills, snapshot.waybills, "waybillNo"],
+    [dispatches, snapshot.dispatches, "id"],
+    [fixedRoutes, snapshot.fixedRoutes, "id"],
+    [vehicles, snapshot.vehicles, "plateNo", "vin"],
+    [trailers, snapshot.trailers, "id"],
+    [drivers, snapshot.drivers, "id"],
+    [routeAccountCatalog, snapshot.routeAccounts, "projectId"],
+  ].forEach(([target, records, key, secondaryKey]) => {
+    if (!Array.isArray(records)) return;
+    const recordKeys = new Set(records.map((record) => record?.[key]).filter(Boolean));
+    const secondaryKeys = new Set(secondaryKey ? records.map((record) => record?.[secondaryKey]).filter(Boolean) : []);
+    const untouched = target.filter((record) => !recordKeys.has(record?.[key]) && (!secondaryKey || !secondaryKeys.has(record?.[secondaryKey])));
+    target.splice(0, target.length, ...records, ...untouched);
+  });
+}
+
+hydrateAdminDataSnapshot();
+
 function ensureDemoAutoDispatches() {
   const hasAutoDispatch = dispatches.some((item) => item.dispatchMode === "auto" || DEFAULT_AUTO_DISPATCH_IDS.has(item.id));
   if (hasAutoDispatch) return;
@@ -1026,14 +1048,12 @@ function renderRows(rows) {
   const groups = getPlanTaskGroups(rows);
   if (resultText) resultText.textContent = `共 ${groups.length} 个计划任务，子任务 ${rows.length} 条；可进入详情查看计划信息与派单情况`;
   if (!groups.length) {
-    tableBody.innerHTML = '<tr><td class="no-data-cell" colspan="12">暂无符合条件的计划任务</td></tr>';
+    tableBody.innerHTML = '<tr><td class="no-data-cell" colspan="11">暂无符合条件的计划任务</td></tr>';
     return;
   }
   tableBody.innerHTML = groups.map((group) => {
     const first = group.first;
     const route = fixedRoutes.find((item) => item.id === (first.routeId || waybillRouteMap[first.waybillNo]));
-    const auto = group.waybills.every((item) => item.autoDispatch) || group.dispatchList.some((item) => item.dispatchMode === "auto");
-    const mode = auto ? "自动派发" : group.status === "待派发" ? "待派发" : "手动派发";
     const amount = group.waybills.reduce((sum, item) => sum + Number(item.receivable || route?.estimatedRevenue || 0), 0);
     return `<tr>
       <td class="plan-task-identity"><strong class="primary-text">${group.taskNo}</strong><small>${group.waybills.length} 条运单</small></td>
@@ -1044,7 +1064,6 @@ function renderRows(rows) {
       <td>${first.taskType || "提空装货"}</td>
       <td>${String(first.executionTime || `${first.orderDate || "-"} 08:00`).replace("T", " ")}</td>
       <td><strong>${group.completed} / ${group.waybills.length}</strong><div class="task-progress"><span style="width:${group.progress}%"></span></div><small>待派发 ${group.pending} · 进行中 ${group.active}</small></td>
-      <td><span class="dispatch-mode ${auto ? "auto" : group.status === "待派发" ? "pending" : "manual"}">${mode}</span></td>
       <td><span class="dispatch-status ${group.status === "已取消" ? "cancelled" : group.status === "已完成" ? "done" : group.status === "进行中" ? "active" : "pending"}">${group.status}</span></td>
       <td class="money">${formatMoney(amount)}</td>
       <td class="fixed-action-column"><div class="vehicle-action-group"><button class="link-btn" data-view-plan-dispatch="${dashboardEscape(group.id)}" type="button">查看详情</button>${group.canCancel ? `<button class="link-btn danger-link" data-cancel-plan="${dashboardEscape(group.id)}" type="button">取消计划</button>` : ""}</div></td>

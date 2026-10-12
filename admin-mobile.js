@@ -21,7 +21,7 @@ const moduleCatalog = {
   },
   dispatch: {
     title: "派单列表", eyebrow: "集卡业务", icon: "send", primary: "新增派单",
-    filters: ["全部", "待派单", "已派单", "运输中", "已完成"],
+    filters: ["全部", "待派单", "已派单", "运输中", "已完成"], listFieldLimit: 6,
     items: [
       { id: "PD-1005", title: "北仑港至江北仓", subtitle: "WB20260916005", status: "待派单", statusClass: "warning", fields: [["司机", "待分配"], ["车辆", "待分配"], ["当前节点", "待派单"], ["派单方式", "待分配"]], note: "等待调度" },
       { id: "PD-1002", title: "洋山港至昆山保税区", subtitle: "WB20260916002", status: "已派单", statusClass: "", fields: [["司机", "赵亮"], ["车辆", "沪D·A9021"], ["当前节点", "待提货"], ["派单方式", "自动派单"]], note: "双拖作业，按现场指引进港" },
@@ -31,7 +31,7 @@ const moduleCatalog = {
   },
   "dispatch-management": {
     title: "派单管理", eyebrow: "计划管理与派发", icon: "list-checks", primary: "进入调度工作台",
-    filters: ["全部", "待匹配", "已匹配", "异常"],
+    filters: ["全部", "待匹配", "已匹配", "异常"], listFieldLimit: 6,
     items: [],
   },
   auto: {
@@ -160,8 +160,7 @@ const mobileFormDefinitions = {
         { name: "drivingLicenseNo", label: "行驶证号" }, { name: "drivingLicenseExpiry", label: "行驶证有效期", type: "date" },
         { name: "permitNo", label: "营运证号", required: true }, { name: "operatingPermitExpiry", label: "营运证有效期", type: "date" },
         { name: "inspectionDue", label: "审验到期日期", type: "date", required: true },
-        { name: "drivingLicense", label: "行驶证扫描件", type: "file", full: true },
-        { name: "operatingPermit", label: "营运证照片", type: "file", full: true },
+        { name: "attachments", label: "附件资料", placeholder: "例如：行驶证、营运证、保单", full: true },
       ] },
       { title: "保险与备注", hint: "保单及到期日期", fields: [
         { name: "commercialInsuranceNo", label: "商业险单号" }, { name: "commercialInsuranceExpiry", label: "商业险有效期", type: "date" },
@@ -184,6 +183,8 @@ const mobileFormDefinitions = {
         { name: "emergencyPhone", label: "紧急联系电话", type: "tel", required: true, pattern: "1[0-9]{10}", inputmode: "numeric" },
         { name: "entryDate", label: "入职日期", type: "date", required: true },
         { name: "driverState", label: "司机状态", type: "select", required: true, options: ["空闲", "运输中", "停用"] },
+        { name: "driverType", label: "司机类型", type: "select", options: ["自有司机", "外协司机"] },
+        { name: "certificationStatus", label: "认证状态", type: "select", options: [["unverified", "未认证"], ["pending", "审核中"], ["verified", "已认证"], ["rejected", "已驳回"]] },
         { name: "fleet", label: "所属车队", required: true },
       ] },
       { title: "驾驶证", hint: "驾驶证信息与电子附件", fields: [
@@ -210,7 +211,7 @@ const mobileFormDefinitions = {
         { name: "customerNo", label: "客户编号", readonly: true, hint: "系统自动生成，无需填写" },
         { name: "customerName", label: "客户全称", required: true, full: true, placeholder: "营业执照上的企业全称" },
         { name: "shortName", label: "简称" },
-        { name: "customerType", label: "客户类型", type: "select", required: true, options: [["", "请选择"], "国际货运代理（货代）", "船公司 / 船代", "第三方物流 / 供应链公司", "跨境电商物流商"] },
+        { name: "customerType", label: "客户类型", type: "select", required: true, options: [["", "请选择"], "直客", "货代", "贸易企业", "国际货运代理（货代）", "船公司 / 船代", "第三方物流 / 供应链公司", "跨境电商物流商"] },
         { name: "creditCode", label: "统一社会信用代码", required: true, full: true, pattern: "[0-9A-Z]{18}", maxlength: "18", hint: "18 位数字或大写字母" },
         { name: "customerStatus", label: "客户状态", type: "select", required: true, options: ["启用", "停用"] },
       ] },
@@ -334,6 +335,10 @@ function sharedStatusClass(status) {
   return ["已完成", "启用", "在用", "空闲", "已确认"].includes(status) ? "success" : ["已过期", "停用", "作废"].includes(status) ? "danger" : ["待派单", "待派发", "维修中", "待处理", "草稿"].includes(status) ? "warning" : "";
 }
 
+function certificationStatusLabel(status) {
+  return ({ verified: "已认证", pending: "审核中", unverified: "未认证", rejected: "已驳回" })[status] || status || "未认证";
+}
+
 function loadSharedCatalog() {
   const snapshot = window.AdminDataBridge?.read?.();
   if (!snapshot) return;
@@ -358,9 +363,9 @@ function loadSharedCatalog() {
   if (dispatches.length) moduleCatalog.dispatch.items = dispatches.map((dispatch) => ({
     id: dispatch.id, title: dispatch.routeName || "未指定线路", subtitle: dispatch.waybillNo || "-", status: dispatch.status || "待派单", statusClass: sharedStatusClass(dispatch.status), fields: [["司机", dispatch.driverName || "待分配"], ["车辆", dispatch.vehicleId || "待分配"], ["挂车", dispatch.trailerId || "未绑定"], ["当前节点", dispatch.currentNode || "待派单"], ["派单方式", dispatch.dispatchMode === "auto" ? "自动派单" : dispatch.dispatchMode === "manual" ? "手动派单" : "待分配"], ["派单时间", dispatch.dispatchTime || "-"]], note: dispatch.note || "", raw: dispatch }));
   if (vehicles.length) moduleCatalog.vehicle.items = vehicles.map((vehicle) => ({ id: vehicle.plateNo, title: vehicle.vehicleType || "集装箱牵引车", subtitle: vehicle.fleetName || vehicle.fleet || "未设置车队", status: vehicle.vehicleState || "停用", statusClass: sharedStatusClass(vehicle.vehicleState), fields: [["司机", vehicle.driver || "未绑定"], ["挂车", vehicle.trailerId || "未绑定"], ["VIN", vehicle.vin || "-"], ["营运证号", vehicle.permitNo || "-"], ["审验到期", vehicle.inspectionDue || "-"], ["保险到期", vehicle.insuranceDue || "-"]], note: vehicle.remark || "", raw: vehicle }));
-  if (trailers.length) moduleCatalog.trailer.items = trailers.map((trailer) => ({ id: trailer.id, title: trailer.plateNo, subtitle: trailer.trailerType || "挂车", status: trailer.trailerState || "停用", statusClass: sharedStatusClass(trailer.trailerState), fields: [["车架号", trailer.vin || "-"], ["所属车队", trailer.fleet || "-"], ["营运证号", trailer.permitNo || "-"], ["审验到期", trailer.inspectionDue || "-"], ["保险到期", trailer.insuranceDue || "-"]], note: trailer.remark || "", raw: trailer }));
-  if (drivers.length) moduleCatalog.driver.items = drivers.map((driver) => ({ id: driver.id, title: driver.name, subtitle: `${driver.fleet || "未设置车队"} · ${driver.phone || "-"}`, status: driver.driverState || "停用", statusClass: sharedStatusClass(driver.driverState), fields: [["准驾车型", driver.licenseClass || "A2"], ["车辆", driver.vehiclePlate || driver.vehicle || "未绑定"], ["认证", driver.certificationStatus === "verified" ? "已认证" : "待认证"], ["驾驶证到期", driver.licenseExpiry || "-"], ["资格证到期", driver.qualificationExpiry || "-"]], note: driver.remark || "", raw: driver }));
-  if (customers.length) moduleCatalog.customer.items = customers.map((customer) => ({ id: customer.customerNo, title: customer.customerName, subtitle: `简称：${customer.shortName || "-"}`, status: customer.customerStatus || "启用", statusClass: sharedStatusClass(customer.customerStatus), fields: [["客户类型", customer.customerType || "-"], ["联系人", customer.contactName || "-"], ["手机", customer.mobile || "-"], ["结算周期", customer.settlementCycle || "-"], ["默认装货地址", customer.loadAddress || "-"]], note: customer.remark || "", raw: customer }));
+  if (trailers.length) moduleCatalog.trailer.items = trailers.map((trailer) => ({ id: trailer.id, title: trailer.plateNo, subtitle: trailer.trailerType || "挂车", status: trailer.trailerState || "停用", statusClass: sharedStatusClass(trailer.trailerState), fields: [["车架号", trailer.vin || "-"], ["车辆所属", trailer.ownership || "-"], ["所属车队", trailer.fleet || "-"], ["营运证号", trailer.permitNo || "-"], ["审验到期", trailer.inspectionDue || "-"], ["保险到期", trailer.insuranceDue || "-"]], note: trailer.remark || "", raw: trailer }));
+  if (drivers.length) moduleCatalog.driver.items = drivers.map((driver) => ({ id: driver.id, title: driver.name, subtitle: `${driver.fleet || "未设置车队"} · ${driver.phone || "-"}`, status: driver.driverState || "停用", statusClass: sharedStatusClass(driver.driverState), fields: [["司机编号", driver.id], ["司机类型", driver.driverType || "-"], ["准驾车型", driver.licenseClass || "A2"], ["车辆", driver.vehiclePlate || driver.vehicle || "未绑定"], ["认证状态", certificationStatusLabel(driver.certificationStatus)], ["驾驶证到期", driver.licenseExpiry || "-"]], note: driver.remark || "", raw: driver }));
+  if (customers.length) moduleCatalog.customer.items = customers.map((customer) => ({ id: customer.customerNo, title: customer.customerName, subtitle: `简称：${customer.shortName || "-"}`, status: customer.customerStatus || "启用", statusClass: sharedStatusClass(customer.customerStatus), fields: [["客户编号", customer.customerNo], ["客户类型", customer.customerType || "-"], ["联系人", customer.contactName || "-"], ["手机", customer.mobile || "-"], ["结算周期", customer.settlementCycle || "-"], ["默认装货地址", customer.loadAddress || "-"]], note: customer.remark || "", raw: customer }));
   const groups = new Map();
   waybills.forEach((waybill) => { const id = waybill.planTaskId || `PT-LEGACY-${waybill.waybillNo}`; const group = groups.get(id) || { id, no: waybill.planTaskNo || id, first: waybill, rows: [] }; group.rows.push(waybill); groups.set(id, group); });
   moduleCatalog.plan.items = [...groups.values()].map((group) => {
@@ -379,7 +384,46 @@ function loadSharedCatalog() {
       note: `${group.rows.length} 条子任务`, raw: { ...group, linkedDispatches, routeIds },
     };
   });
+  rebuildDispatchManagementCatalog();
   rebuildCapacityCatalog(dispatches);
+}
+
+function dispatchModeLabel(mode) {
+  return ({ auto: "自动派单", manual: "手动派单", pending: "待分配" })[mode] || (mode ? String(mode) : "待分配");
+}
+
+function dispatchRawForItem(item) {
+  if (item?.raw) return item.raw;
+  const field = (label) => item?.fields?.find(([name]) => name === label)?.[1] || "";
+  return {
+    id: item?.id || "", waybillNo: item?.subtitle || "", routeName: item?.title || "", status: item?.status || "待派单",
+    driverName: field("司机"), vehicleId: field("车辆"), trailerId: field("挂车"), currentNode: field("当前节点"),
+    dispatchMode: field("派单方式") === "自动派单" ? "auto" : field("派单方式") === "手动派单" ? "manual" : "pending",
+    dispatchTime: field("派单时间"), note: item?.note || "",
+  };
+}
+
+function rebuildDispatchManagementCatalog() {
+  moduleCatalog["dispatch-management"].items = moduleCatalog.dispatch.items
+    .filter((item) => item.status === "待派单" || item.status === "异常")
+    .map((item) => {
+      const dispatch = dispatchRawForItem(item);
+      const waybill = moduleCatalog.waybill.items.find((entry) => entry.id === (dispatch.waybillNo || item.subtitle));
+      const task = waybill?.raw || {};
+      const matched = Boolean(dispatch.driverId && dispatch.vehicleId);
+      const status = item.status === "异常" ? "异常" : matched ? "已匹配" : "待匹配";
+      return {
+        id: item.id, title: task.customerName || waybill?.title || dispatch.routeName || "待匹配任务",
+        subtitle: `${dispatch.waybillNo || item.subtitle || "-"} · ${task.projectName || "未分配项目"}`,
+        status, statusClass: status === "已匹配" ? "success" : status === "异常" ? "danger" : "warning",
+        fields: [
+          ["计划任务", task.planTaskNo || task.planTaskId || dispatch.planTaskNo || "-"], ["任务类型", task.taskType || dispatch.taskType || "-"],
+          ["执行时间", String(task.executionTime || task.orderDate || dispatch.orderDate || "-").replace("T", " ")], ["固定线路", dispatch.routeName || waybill?.subtitle || "-"],
+          ["柜型 / 箱信息", dispatch.boxes || task.boxType || "待补录"], ["已选运力", matched ? `${dispatch.driverName || dispatch.driverId} / ${dispatch.vehicleId}` : "待分配"],
+        ],
+        note: dispatch.note || task.remark || "等待匹配司机和车辆", raw: { dispatch, waybill: task },
+      };
+    });
 }
 
 function rebuildCapacityCatalog(dispatches = []) {
@@ -389,13 +433,14 @@ function rebuildCapacityCatalog(dispatches = []) {
     ...vehicles.map((item) => {
       const vehicle = item.raw || { plateNo: item.id, vehicleType: item.title, fleetName: item.subtitle, vehicleState: item.status };
       const active = dispatches.find((dispatch) => dispatch.vehicleId === vehicle.plateNo && ["已派单", "运输中"].includes(dispatch.status));
-      const status = vehicle.vehicleState === "维修中" ? "维修中" : vehicle.vehicleState === "停用" ? "停用" : active?.status === "运输中" ? "运输中" : "闲置";
+      const status = vehicle.vehicleState === "维修中" ? "维修中" : vehicle.vehicleState === "停用" ? "停用" : active ? "运输中" : "闲置";
       return { id: `vehicle-${vehicle.plateNo}`, title: vehicle.plateNo, subtitle: vehicle.vehicleType || "车辆", status, statusClass: sharedStatusClass(status), fields: [["运力类型", "车辆"], ["司机", active?.driverName || vehicle.driver || "未绑定"], ["挂车", vehicle.trailerId || "未绑定"], ["当前任务", active?.waybillNo || "无"], ["车队", vehicle.fleet || vehicle.fleetName || "-"], ["审验到期", vehicle.inspectionDue || "-"]], note: active?.routeName || "当前无执行任务", raw: vehicle };
     }),
     ...drivers.map((item) => {
       const driver = item.raw || { id: item.id, name: item.title, driverState: item.status, fleet: item.subtitle };
-      const status = driver.driverState === "运输中" ? "运输中" : driver.driverState === "停用" ? "停用" : "闲置";
-      return { id: `driver-${driver.id}`, title: driver.name, subtitle: "司机运力", status, statusClass: sharedStatusClass(status), fields: [["运力类型", "司机"], ["司机编号", driver.id], ["车辆", driver.vehiclePlate || driver.vehicle || "未绑定"], ["车队", driver.fleet || "-"], ["准驾车型", driver.licenseClass || "-"], ["证件到期", driver.licenseExpiry || "-"]], note: "司机运力状态", raw: driver };
+      const active = dispatches.find((dispatch) => dispatch.driverId === driver.id && ["已派单", "运输中"].includes(dispatch.status));
+      const status = active ? "运输中" : driver.driverState === "运输中" ? "运输中" : driver.driverState === "停用" ? "停用" : "闲置";
+      return { id: `driver-${driver.id}`, title: driver.name, subtitle: "司机运力", status, statusClass: sharedStatusClass(status), fields: [["运力类型", "司机"], ["司机编号", driver.id], ["车辆", active?.vehicleId || driver.vehiclePlate || driver.vehicle || "未绑定"], ["当前任务", active?.waybillNo || "无"], ["车队", driver.fleet || "-"], ["准驾车型", driver.licenseClass || "-"]], note: active?.routeName || "司机运力状态", raw: driver };
     }),
   ];
 }
@@ -449,13 +494,19 @@ function waybillEntryMarkup() {
 
 function dispatchEntryMarkup() {
   const waybillOptions = [["", "请选择已有运单"], ...moduleCatalog.waybill.items.map((item) => [item.id, `${item.id} · ${item.title}`])];
+  const routeOptions = [["", "请选择固定线路"], ...moduleCatalog.route.items.filter((item) => item.status === "启用").map((item) => [item.id, item.title])];
+  const projects = [...new Map((window.AdminDataBridge?.read?.()?.routeAccounts || []).map((item) => [item.projectId, item])).values()];
+  const projectOptions = [["", "请选择项目"], ...projects.map((item) => [item.projectId, item.projectName || item.projectId])];
+  const trailerOptions = [["", "未绑定挂车"], ...moduleCatalog.trailer.items.filter((item) => item.status === "在用").map((item) => [item.id, `${item.title} · ${item.subtitle}`])];
   return `${formIntro("send", "先选择已有运单，再分配司机与车辆；提交后推送至司机移动端。")}
-    <section class="mobile-form-section"><header class="mobile-form-section-heading"><span>01</span><div><strong>选择运单</strong><small>选择后自动回显线路、地址和箱信息</small></div></header><div class="mobile-form-grid">${fieldMarkup({ name: "waybillId", label: "运单号", type: "select", required: true, full: true, options: waybillOptions })}</div>
+    <section class="mobile-form-section"><header class="mobile-form-section-heading"><span>01</span><div><strong>选择任务</strong><small>运单、项目和固定线路</small></div></header><div class="mobile-form-grid">${fieldMarkup({ name: "waybillId", label: "运单号", type: "select", required: true, full: true, options: waybillOptions })}${fieldMarkup({ name: "projectId", label: "项目", type: "select", options: projectOptions })}${fieldMarkup({ name: "routeId", label: "固定线路", type: "select", required: true, options: routeOptions })}</div>
       <div class="readonly-summary" id="mobileDispatchSummary"><div><span>固定线路</span><strong data-summary="route"></strong></div><div><span>起运地</span><strong data-summary="origin"></strong></div><div><span>目的地</span><strong data-summary="destination"></strong></div><div><span>装卸地址</span><strong data-summary="address"></strong></div><div><span>箱信息</span><strong data-summary="boxes"></strong></div><div><span>预估收入</span><strong data-summary="revenue"></strong></div><div><span>司机提成</span><strong data-summary="commission"></strong></div></div>
     </section>
-    <section class="mobile-form-section"><header class="mobile-form-section-heading"><span>02</span><div><strong>调度安排</strong><small>选择司机和车辆</small></div></header><div class="mobile-form-grid">
+    <section class="mobile-form-section"><header class="mobile-form-section-heading"><span>02</span><div><strong>调度安排</strong><small>选择司机、车辆和挂车</small></div></header><div class="mobile-form-grid">
       ${fieldMarkup({ name: "driverId", label: "司机", type: "select", required: true, disabled: true, options: [["", "请选择司机"], ...moduleCatalog.driver.items.filter((item) => item.status !== "停用").map((item) => [item.id, item.title])] })}
       ${fieldMarkup({ name: "vehicleId", label: "车辆", type: "select", required: true, disabled: true, options: [["", "请选择车辆"], ...moduleCatalog.vehicle.items.filter((item) => item.status === "在用").map((item) => [item.id, item.id])] })}
+      ${fieldMarkup({ name: "trailerId", label: "挂车", type: "select", options: trailerOptions })}
+      ${fieldMarkup({ name: "vehicleType", label: "车辆动力类型", type: "select", options: ["燃油车", "LNG", "新能源车"] })}
       ${fieldMarkup({ name: "note", label: "派单备注", full: true, type: "textarea" })}
     </div></section>`;
 }
@@ -543,7 +594,7 @@ function renderModule() {
     <article class="manager-list-card">
       <div class="list-card-top"><div><strong>${h(item.title)}</strong><small>${h(item.id)} · ${h(item.subtitle)}</small></div><span class="status-tag ${h(item.statusClass)}">${h(item.status)}</span></div>
       <div class="list-card-grid">${item.fields.slice(0, meta.listFieldLimit || 4).map(([label, value]) => `<div class="list-field"><span>${h(label)}</span><strong>${h(value)}</strong></div>`).join("")}</div>
-      <div class="list-card-footer"><span>${h(item.note || "资料已同步")}</span><button class="${item.status === "待派单" || item.status === "待处理" ? "primary" : ""}" data-module-detail="${h(item.id)}" type="button">${item.status === "待派单" ? "去派单" : item.status === "待处理" ? "去处理" : "查看详情"}</button></div>
+      <div class="list-card-footer"><span>${h(item.note || "资料已同步")}</span><button class="${["待派单", "待处理", "待匹配"].includes(item.status) ? "primary" : ""}" data-module-detail="${h(item.id)}" type="button">${item.status === "待派单" ? "去派单" : item.status === "待匹配" ? "去匹配" : item.status === "待处理" ? "去处理" : "查看详情"}</button></div>
     </article>`).join("") : `<div class="module-empty"><span><i data-lucide="inbox"></i></span><strong>暂无匹配数据</strong><small>调整搜索或筛选条件后重试</small></div>`;
   refreshIcons();
 }
@@ -551,6 +602,7 @@ function renderModule() {
 function openModule(moduleName, filter = "全部") {
   const meta = moduleCatalog[moduleName];
   if (!meta) return;
+  if (moduleName === "dispatch-management") rebuildDispatchManagementCatalog();
   state.currentModule = moduleName;
   state.moduleFilter = meta.filters.includes(filter) ? filter : "全部";
   state.search = "";
@@ -559,6 +611,7 @@ function openModule(moduleName, filter = "全部") {
   $("#moduleEyebrow").textContent = meta.eyebrow;
   $("#moduleTitle").textContent = meta.title;
   $("#modulePrimaryButton").setAttribute("aria-label", meta.primary);
+  $("#modulePrimaryButton").hidden = ["capacity", "dispatch-management"].includes(moduleName);
   $("#moduleView").classList.add("open");
   $("#moduleView").setAttribute("aria-hidden", "false");
   $(".manager-shell").classList.add("subpage-open");
@@ -595,8 +648,10 @@ function updateDispatchSummary() {
   driver.disabled = !waybill;
   vehicle.disabled = !waybill;
   if (!waybill) { driver.value = ""; vehicle.value = ""; }
-  const route = waybill ? moduleCatalog.route.items.find((item) => item.title === waybill.subtitle) : null;
+  if (waybill && !form.elements.routeId.value) form.elements.routeId.value = waybill.raw?.routeId || "";
+  const route = waybill ? moduleCatalog.route.items.find((item) => item.id === form.elements.routeId.value) || moduleCatalog.route.items.find((item) => item.title === waybill.subtitle) : null;
   const routeRaw = route ? routeInfo(route) : {};
+  if (waybill && !form.elements.projectId.value) form.elements.projectId.value = waybill.raw?.projectId || routeRaw.projectId || "";
   const field = (label) => waybill?.fields.find(([name]) => name === label)?.[1] || "";
   const values = {
     route: waybill?.subtitle || "", origin: routeRaw.origin || "", destination: routeRaw.destination || "",
@@ -604,6 +659,13 @@ function updateDispatchSummary() {
     revenue: routeRaw.estimatedRevenue ? `¥${routeRaw.estimatedRevenue}` : "", commission: routeRaw.commissionValue ? `¥${routeRaw.commissionValue}` : "",
   };
   $$("#mobileDispatchSummary [data-summary]").forEach((node) => { node.textContent = values[node.dataset.summary] || ""; });
+}
+
+function updateDispatchVehicle() {
+  const form = $("#managerEntryForm");
+  if (state.entryModule !== "dispatch" || !form.elements.vehicleId) return;
+  const vehicle = moduleCatalog.vehicle.items.find((item) => item.id === form.elements.vehicleId.value);
+  if (vehicle?.raw?.trailerId && form.elements.trailerId && !form.elements.trailerId.value) form.elements.trailerId.value = vehicle.raw.trailerId;
 }
 
 function updateWaybillCustomer() {
@@ -690,7 +752,7 @@ function openEntry(moduleName, recordId = "") {
   const meta = moduleCatalog[moduleName];
   const existing = recordId ? meta.items.find((item) => item.id === recordId) : null;
   state.entryOriginalId = existing?.id || "";
-  state.entryOriginalRaw = existing?.raw ? { ...existing.raw } : null;
+  state.entryOriginalRaw = existing ? { ...(moduleName === "dispatch" ? dispatchRawForItem(existing) : existing.raw || {}) } : null;
   $("#entryEyebrow").textContent = meta.eyebrow;
   $("#entryTitle").textContent = moduleName === "auto" ? "自动派单设置" : meta.primary;
   $("#entrySaveButton").textContent = recordId ? "保存修改" : moduleName === "dispatch" ? "派单并推送" : moduleName === "auto" ? "保存设置" : meta.primary.replace("新增", "保存");
@@ -710,10 +772,36 @@ function openEntry(moduleName, recordId = "") {
     const form = $("#managerEntryForm");
     Object.entries(existing.raw).forEach(([name, value]) => {
       const control = form.elements[name];
-      if (!control || value == null || control.type === "file") return;
+      if (!control || value == null) return;
+      if (control.type === "file") {
+        const picker = control.closest(".file-picker");
+        if (value && picker) {
+          picker.classList.add("selected");
+          picker.querySelector("strong").textContent = `已归档：${value}`;
+          picker.querySelector("small").textContent = "重新选择文件将替换现有附件";
+        }
+        return;
+      }
       control.value = value;
     });
     $("#entryTitle").textContent = `编辑${meta.title.replace("管理", "")}`;
+  }
+  if (moduleName === "dispatch" && existing) {
+    const form = $("#managerEntryForm");
+    const raw = state.entryOriginalRaw || {};
+    const waybillId = raw.waybillNo || raw.waybillId || existing.subtitle;
+    form.elements.waybillId.value = waybillId;
+    updateDispatchSummary();
+    [["driverId", raw.driverId], ["vehicleId", raw.vehicleId], ["routeId", raw.routeId], ["projectId", raw.projectId], ["trailerId", raw.trailerId], ["vehicleType", raw.vehicleType]].forEach(([name, value]) => {
+      const control = form.elements[name];
+      if (!control || !value) return;
+      if (control.options && ![...control.options].some((option) => option.value === value)) control.insertAdjacentHTML("beforeend", `<option value="${h(value)}">${h(name === "driverId" ? raw.driverName || value : value)}（当前）</option>`);
+      control.value = value;
+    });
+    form.elements.note.value = raw.note || "";
+    form.elements.waybillId.disabled = true;
+    $("#entryTitle").textContent = raw.status === "待派单" ? "分配司机与车辆" : "编辑派单";
+    $("#entrySaveButton").textContent = raw.status === "待派单" ? "确认派单并推送" : "保存派单修改";
   }
   if (moduleName === "plan" && $("#managerEntryForm").elements.routeId) {
     $("#managerEntryForm").elements.routeId.innerHTML = `<option value="">请选择固定线路</option>${moduleCatalog.route.items.filter((item) => item.status === "启用").map((item) => `<option value="${h(item.id)}">${h(item.title)}</option>`).join("")}`;
@@ -791,6 +879,7 @@ function openDetail(item) {
   state.detailItem = item;
   $("#detailTitle").textContent = item.title;
   $("#detailActionButton").innerHTML = '<i data-lucide="ellipsis"></i>';
+  $("#detailActionButton").hidden = false;
   $("#detailActionButton").removeAttribute("aria-label");
   delete $("#detailActionButton").dataset.editModule;
   delete $("#detailActionButton").dataset.editId;
@@ -806,6 +895,16 @@ function openDetail(item) {
   }
   if (state.currentModule === "route") {
     renderRouteDetail(item);
+    refreshIcons();
+    return;
+  }
+  if (state.currentModule === "dispatch") {
+    renderDispatchDetail(item);
+    refreshIcons();
+    return;
+  }
+  if (state.currentModule === "dispatch-management") {
+    renderDispatchManagementDetail(item);
     refreshIcons();
     return;
   }
@@ -889,6 +988,58 @@ function renderRouteDetail(item) {
   $("#managerDetailContent").innerHTML = `<section class="detail-hero"><span>固定线路详情 · ${h(route.routeState || item.status)}</span><h2>${h(route.routeName || item.title)}</h2><p>${h(route.routeCode || route.id || item.id)} · ${h(route.origin || "-")} → ${h(route.destination || "-")}</p></section><section class="detail-section"><h3>线路完整资料</h3>${planDetailRows(fields)}</section><div class="detail-action-bar"><div><strong>需要调整线路资料？</strong><small>修改后将同步更新后台固定线路配置</small></div><button class="detail-edit-button" data-edit-route="${h(item.id)}" type="button"><i data-lucide="pencil"></i><span>编辑线路资料</span></button></div>`;
 }
 
+const dispatchFieldLabels = {
+  id: "派单编号", waybillNo: "运单号", dispatchMode: "派单方式", orderDate: "接单日期", planTaskId: "计划任务ID", planTaskNo: "计划任务编号",
+  taskType: "任务类型", customerId: "客户编号", customerName: "客户名称", projectId: "项目编号", projectName: "项目名称", routeId: "线路编号",
+  routeName: "线路名称", origin: "起运地", destination: "目的地", loadAddress: "装卸地址", dispatchTime: "派单时间", driverId: "司机编号",
+  driverName: "司机姓名", phone: "联系电话", vehicleId: "车牌号", vehicleType: "车辆类型", trailerId: "挂车编号", status: "派单状态",
+  currentNode: "当前节点", boxes: "箱信息", estimatedRevenue: "预估收入", commission: "司机提成", routeMileageSnapshot: "线路里程快照", pushed: "已推送",
+  note: "派单备注", timeline: "运输节点", photoAttachments: "节点附件", photos: "现场图片",
+};
+
+function dispatchDetailRows(raw, excluded = []) {
+  const excludedFields = new Set(excluded);
+  return Object.entries(raw || {}).filter(([key]) => !excludedFields.has(key)).map(([key, value]) => [dispatchFieldLabels[key] || planWaybillFieldLabels[key] || key, key === "dispatchMode" ? dispatchModeLabel(value) : value]);
+}
+
+function renderDispatchTimeline(raw) {
+  const timeline = Array.isArray(raw.timeline) ? raw.timeline : [];
+  const rows = timeline.map((entry, index) => [`${String(index + 1).padStart(2, "0")} · ${entry.node || "运输节点"}`, [entry.time, entry.desc, ...(entry.photos || [])].filter(Boolean).join(" · ")]);
+  return `<section class="detail-section"><h3>运输节点记录</h3>${planDetailRows(rows.length ? rows : [["执行记录", "暂无运输节点"]])}</section>`;
+}
+
+function renderDispatchDetail(item) {
+  const dispatch = dispatchRawForItem(item);
+  const waybill = moduleCatalog.waybill.items.find((entry) => entry.id === (dispatch.waybillNo || item.subtitle));
+  const task = waybill?.raw || {};
+  const editable = ["待派单", "已派单", "运输中"].includes(dispatch.status || item.status);
+  const coreFields = [
+    ["派单编号", dispatch.id || item.id], ["运单号", dispatch.waybillNo || item.subtitle], ["计划任务编号", dispatch.planTaskNo || task.planTaskNo || task.planTaskId],
+    ["客户 / 项目", [dispatch.customerName || task.customerName, dispatch.projectName || task.projectName].filter(Boolean).join(" / ")], ["任务类型", dispatch.taskType || task.taskType],
+    ["派单方式", dispatchModeLabel(dispatch.dispatchMode)], ["派单状态", dispatch.status || item.status], ["当前节点", dispatch.currentNode], ["派单时间", dispatch.dispatchTime], ["消息推送", dispatch.pushed ? "已推送司机端" : "待推送"],
+  ];
+  const capacityFields = [
+    ["司机", dispatch.driverName || "待分配"], ["司机编号", dispatch.driverId], ["联系电话", dispatch.phone], ["车辆", dispatch.vehicleId || "待分配"],
+    ["车辆类型", dispatch.vehicleType], ["挂车", dispatch.trailerId || "未绑定"], ["预估收入", dispatch.estimatedRevenue == null ? "-" : `¥${dispatch.estimatedRevenue}`],
+    ["司机提成", dispatch.commission == null ? "-" : `¥${dispatch.commission}`], ["线路里程快照", dispatch.routeMileageSnapshot == null ? "-" : `${dispatch.routeMileageSnapshot} KM`],
+  ];
+  const routeFields = [["线路编号", dispatch.routeId || task.routeId], ["线路名称", dispatch.routeName || waybill?.subtitle], ["起运地", dispatch.origin], ["目的地", dispatch.destination], ["装卸地址", dispatch.loadAddress || task.loadAddress], ["箱信息", dispatch.boxes || task.boxType], ["派单备注", dispatch.note]];
+  const coreKeys = ["id", "waybillNo", "planTaskNo", "planTaskId", "customerName", "projectName", "taskType", "dispatchMode", "status", "currentNode", "dispatchTime", "pushed", "driverName", "driverId", "phone", "vehicleId", "vehicleType", "trailerId", "estimatedRevenue", "commission", "routeMileageSnapshot", "routeId", "routeName", "origin", "destination", "loadAddress", "boxes", "note", "timeline"];
+  const extras = dispatchDetailRows(dispatch, coreKeys);
+  if (editable) setDetailEditAction("dispatch", dispatch.id || item.id, dispatch.status === "待派单" ? "分配司机和车辆" : "编辑派单");
+  else $("#detailActionButton").hidden = true;
+  $("#managerDetailContent").innerHTML = `<section class="detail-hero"><span>派单详情 · ${h(dispatch.status || item.status || "-")}</span><h2>${h(dispatch.waybillNo || item.subtitle || item.id)}</h2><p>${h(dispatch.routeName || item.title || "未指定线路")}</p></section><section class="detail-section"><h3>任务与派单信息</h3>${planDetailRows(coreFields)}</section><section class="detail-section"><h3>司机与车辆</h3>${planDetailRows(capacityFields)}</section><section class="detail-section"><h3>线路与箱信息</h3>${planDetailRows(routeFields)}</section>${renderDispatchTimeline(dispatch)}${extras.length ? `<section class="detail-section"><h3>其他后台字段</h3>${planDetailRows(extras)}</section>` : ""}${editable ? `<div class="detail-action-bar"><div><strong>${dispatch.status === "待派单" ? "任务等待分配运力" : "需要调整本次派单？"}</strong><small>保存后同步更新后台派单台账和关联运单</small></div><button class="detail-edit-button" data-edit-module="dispatch" data-edit-id="${h(dispatch.id || item.id)}" type="button"><i data-lucide="${dispatch.status === "待派单" ? "user-check" : "pencil"}"></i><span>${dispatch.status === "待派单" ? "分配司机与车辆" : "编辑派单"}</span></button></div>` : ""}`;
+}
+
+function renderDispatchManagementDetail(item) {
+  const dispatch = item.raw?.dispatch || dispatchRawForItem(moduleCatalog.dispatch.items.find((entry) => entry.id === item.id) || item);
+  const task = item.raw?.waybill || moduleCatalog.waybill.items.find((entry) => entry.id === dispatch.waybillNo)?.raw || {};
+  const availableVehicles = moduleCatalog.capacity.items.filter((entry) => entry.id.startsWith("vehicle-") && entry.status === "闲置").length;
+  const availableDrivers = moduleCatalog.capacity.items.filter((entry) => entry.id.startsWith("driver-") && entry.status === "闲置").length;
+  setDetailEditAction("dispatch", dispatch.id || item.id, "分配司机和车辆");
+  $("#managerDetailContent").innerHTML = `<section class="detail-hero"><span>待匹配任务 · ${h(item.status)}</span><h2>${h(dispatch.waybillNo || item.subtitle)}</h2><p>${h(dispatch.routeName || item.title)}</p></section><section class="detail-section"><h3>任务信息</h3>${planDetailRows(dispatchDetailRows(task))}</section><section class="detail-section"><h3>当前匹配情况</h3>${planDetailRows([["匹配状态", item.status], ["已选司机", dispatch.driverName || "待分配"], ["已选车辆", dispatch.vehicleId || "待分配"], ["可用司机", `${availableDrivers} 名`], ["可用车辆", `${availableVehicles} 台`]])}</section><section class="detail-section"><h3>派单后台字段</h3>${planDetailRows(dispatchDetailRows(dispatch, ["timeline"]))}</section><div class="detail-action-bar"><div><strong>为任务匹配运力</strong><small>选择司机与车辆后将生成正式派单并推送司机端</small></div><button class="detail-edit-button" data-edit-module="dispatch" data-edit-id="${h(dispatch.id || item.id)}" type="button"><i data-lucide="user-check"></i><span>分配司机与车辆</span></button></div>`;
+}
+
 function assetRecordId(moduleName, values) {
   const previous = state.entryOriginalRaw || {};
   if (moduleName === "vehicle") return values.plateNo || previous.plateNo;
@@ -912,7 +1063,7 @@ function buildAssetRecord(moduleName, values) {
   }
   if (moduleName === "driver") {
     const status = values.driverState || "停用";
-    return { id: raw.id, title: values.name, subtitle: `${values.fleet || "未设置车队"} · ${values.phone || "-"}`, status, statusClass: sharedStatusClass(status), fields: [["司机编号", raw.id], ["性别", values.gender || "-"], ["手机号", values.phone || "-"], ["准驾车型", values.licenseClass || "-"], ["认证状态", ({ verified: "已认证", pending: "审核中", unverified: "未认证" })[values.certificationStatus] || values.certificationStatus || "待认证"], ["车辆", values.vehiclePlate || values.vehicle || "未绑定"], ["驾驶证到期", values.licenseExpiry || "-"], ["资格证到期", values.qualificationExpiry || "-"]], note: values.remark || "", raw };
+    return { id: raw.id, title: values.name, subtitle: `${values.fleet || "未设置车队"} · ${values.phone || "-"}`, status, statusClass: sharedStatusClass(status), fields: [["司机编号", raw.id], ["司机类型", values.driverType || "-"], ["准驾车型", values.licenseClass || "-"], ["车辆", values.vehiclePlate || values.vehicle || "未绑定"], ["认证状态", certificationStatusLabel(values.certificationStatus)], ["驾驶证到期", values.licenseExpiry || "-"]], note: values.remark || "", raw };
   }
   if (moduleName === "customer") {
     raw.customerNo = values.customerNo || oldRaw.customerNo;
@@ -956,7 +1107,7 @@ function renderAssetDetail(moduleName, item) {
       : sourceModule === "trailer" ? raw.id || item.id
         : raw.id || item.id.replace(/^driver-/, "");
   const sections = definition.sections.map((section) => {
-    const rows = section.fields.map((field) => [field.label, field.type === "file" ? (raw[field.name] || "-") : (raw[field.name] ?? "-")]);
+    const rows = section.fields.map((field) => [field.label, field.type === "file" ? (raw[field.name] || "-") : raw[field.name] == null || raw[field.name] === "" ? "-" : fieldValueLabel(sourceModule, field, raw[field.name])]);
     return `<section class="detail-section"><h3>${h(section.title)}</h3>${planDetailRows(rows)}</section>`;
   }).join("");
   const knownFields = new Set(["id", ...definition.sections.flatMap((section) => section.fields.map((field) => field.name))]);
@@ -1028,8 +1179,8 @@ function loadCreatedRecords() {
 
 function updateWorkbenchCounts() {
   const labels = {
-    waybill: `${moduleCatalog.waybill.items.length} 条记录`, plan: `${moduleCatalog.plan.items.length} 个任务`, route: `${moduleCatalog.route.items.length} 条线路`, "dispatch-management": "待匹配任务",
-    dispatch: `${moduleCatalog.dispatch.items.filter((item) => item.status === "待派单").length} 条待执行`,
+    waybill: `${moduleCatalog.waybill.items.length} 条记录`, plan: `${moduleCatalog.plan.items.length} 个任务`, route: `${moduleCatalog.route.items.length} 条线路`, "dispatch-management": `${moduleCatalog["dispatch-management"].items.filter((item) => item.status === "待匹配").length} 条待匹配`,
+    dispatch: `${moduleCatalog.dispatch.items.length} 条派单`,
     capacity: `${moduleCatalog.capacity.items.length} 条运力`, vehicle: `${moduleCatalog.vehicle.items.length} 台车辆`, trailer: `${moduleCatalog.trailer.items.length} 台挂车`, driver: `${moduleCatalog.driver.items.length} 名司机`,
     customer: `${moduleCatalog.customer.items.length} 家客户`, reminder: `${moduleCatalog.reminder.items.length} 项待处理`,
   };
@@ -1064,6 +1215,50 @@ function renderManagerDrawer() {
   refreshIcons();
 }
 
+function buildDispatchRecord(values) {
+  const oldRaw = state.entryOriginalRaw || {};
+  const waybill = moduleCatalog.waybill.items.find((item) => item.id === values.waybillId);
+  const task = waybill?.raw || {};
+  const route = moduleCatalog.route.items.find((item) => item.id === (values.routeId || task.routeId || oldRaw.routeId)) || moduleCatalog.route.items.find((item) => item.title === waybill?.subtitle);
+  const routeRaw = route?.raw || {};
+  const project = (window.AdminDataBridge?.read?.()?.routeAccounts || []).find((item) => item.projectId === values.projectId);
+  const driver = moduleCatalog.driver.items.find((item) => item.id === values.driverId);
+  const vehicle = moduleCatalog.vehicle.items.find((item) => item.id === values.vehicleId);
+  const driverRaw = driver?.raw || {};
+  const vehicleRaw = vehicle?.raw || {};
+  const dispatchTime = new Date().toLocaleString("zh-CN", { hour12: false });
+  const wasPending = !state.entryEditId || (oldRaw.status || "待派单") === "待派单";
+  const commission = routeRaw.commissionType === "rate" ? Number(routeRaw.estimatedRevenue || 0) * Number(routeRaw.commissionValue || 0) / 100 : Number(routeRaw.commissionValue || oldRaw.commission || 0);
+  const boxes = Array.isArray(task.containers) && task.containers.length
+    ? task.containers.map((entry) => [entry.boxNo || entry.containerNo, entry.boxType || entry.containerType].filter(Boolean).join(" / ")).join("、")
+    : oldRaw.boxes || task.boxType || "待装箱";
+  const id = oldRaw.id || `PD-M-${Date.now()}`;
+  const timeline = Array.isArray(oldRaw.timeline) ? [...oldRaw.timeline] : [];
+  timeline.push(wasPending
+    ? { node: "已派单", time: dispatchTime, desc: "管理端手动分配司机和车辆，派单已同步至司机端", photos: [] }
+    : { node: "派单调整", time: dispatchTime, desc: `管理端将运力调整为 ${driver?.title || values.driverId} / ${vehicle?.id || values.vehicleId}，变更已同步司机端`, photos: [] });
+  const raw = {
+    ...oldRaw, id, dispatchMode: "manual", waybillNo: waybill?.id || values.waybillId, planTaskId: task.planTaskId || oldRaw.planTaskId,
+    planTaskNo: task.planTaskNo || task.planTaskId || oldRaw.planTaskNo, taskType: task.taskType || oldRaw.taskType || "提空装货",
+    customerId: task.customerId || oldRaw.customerId, customerName: task.customerName || waybill?.title || oldRaw.customerName,
+    projectId: values.projectId || task.projectId || routeRaw.projectId || oldRaw.projectId, projectName: project?.projectName || task.projectName || routeRaw.projectName || oldRaw.projectName,
+    orderDate: task.orderDate || oldRaw.orderDate || localDate(), routeId: route?.id || oldRaw.routeId, routeName: route?.title || oldRaw.routeName || waybill?.subtitle,
+    origin: routeRaw.origin || oldRaw.origin, destination: routeRaw.destination || oldRaw.destination, loadAddress: task.loadAddress || routeRaw.loadingPoint || oldRaw.loadAddress,
+    dispatchTime: wasPending ? dispatchTime : oldRaw.dispatchTime || dispatchTime, driverId: driver?.id || values.driverId, driverName: driver?.title || driverRaw.name || oldRaw.driverName,
+    phone: driverRaw.phone || oldRaw.phone, vehicleId: vehicle?.id || values.vehicleId, vehicleType: values.vehicleType || vehicleRaw.energyType || oldRaw.vehicleType || "燃油车",
+    trailerId: values.trailerId || vehicleRaw.trailerId || oldRaw.trailerId || "", status: wasPending ? "已派单" : oldRaw.status || "已派单",
+    currentNode: wasPending ? "待提货" : oldRaw.currentNode || "待提货", boxes, estimatedRevenue: Number(routeRaw.estimatedRevenue ?? oldRaw.estimatedRevenue ?? 0),
+    commission, routeMileageSnapshot: routeRaw.mileage === "" || routeRaw.mileage == null ? oldRaw.routeMileageSnapshot ?? null : Number(routeRaw.mileage),
+    note: values.note || "", pushed: true, timeline,
+  };
+  if (waybill?.raw) Object.assign(waybill.raw, { dispatchDate: raw.dispatchTime.slice(0, 10), plateNo: raw.vehicleId, driverId: raw.driverId, driverName: raw.driverName, trailerId: raw.trailerId, routeMileageSnapshot: raw.routeMileageSnapshot });
+  return {
+    id, title: raw.routeName || "未指定线路", subtitle: raw.waybillNo, status: raw.status, statusClass: sharedStatusClass(raw.status),
+    fields: [["司机", raw.driverName || "待分配"], ["车辆", raw.vehicleId || "待分配"], ["挂车", raw.trailerId || "未绑定"], ["当前节点", raw.currentNode], ["派单方式", dispatchModeLabel(raw.dispatchMode)], ["派单时间", raw.dispatchTime || "-"]],
+    note: raw.note || "已推送至司机端", raw,
+  };
+}
+
 function createMobileRecord(moduleName, values) {
   if (moduleName === "plan") {
     const route = moduleCatalog.route.items.find((item) => item.id === values.routeId);
@@ -1075,7 +1270,9 @@ function createMobileRecord(moduleName, values) {
       const raw = { waybillNo, planTaskId: planId, planTaskNo: planNo, orderDate: String(values.executionTime || localDate()).slice(0, 10), executionTime: values.executionTime, routeId: values.routeId, customerName: values.customerName, projectName: values.projectName, boxType: values.boxType, taskType: values.taskType, autoDispatch: false, dispatchAdvanceMinutes: 0 };
       const item = { id: waybillNo, title: values.customerName, subtitle: route?.title || "未指定线路", status: "草拟", statusClass: "warning", fields: [["接单日期", raw.orderDate], ["计划任务", planNo], ["箱型", values.boxType], ["任务类型", values.taskType], ["装卸地址", route?.raw?.loadingPoint || route?.raw?.origin || "-"]], note: values.remark || "移动端创建计划任务", raw };
       moduleCatalog.waybill.items.unshift(item);
-      const dispatchItem = { id: `PD-${Date.now()}-${index}`, title: route?.title || "未指定线路", subtitle: waybillNo, status: "待派单", statusClass: "warning", fields: [["司机", "待分配"], ["车辆", "待分配"], ["当前节点", "待派单"]], note: "计划任务已进入待派发池", raw };
+      const dispatchId = `PD-${Date.now()}-${index}`;
+      const dispatchRaw = { id: dispatchId, waybillNo, planTaskId: planId, planTaskNo: planNo, taskType: values.taskType, customerName: values.customerName, projectName: values.projectName, orderDate: raw.orderDate, routeId: values.routeId, routeName: route?.title || "未指定线路", origin: route?.raw?.origin || "", destination: route?.raw?.destination || "", dispatchMode: "pending", dispatchTime: "", driverId: "", driverName: "待分配", phone: "-", vehicleId: "", trailerId: "", status: "待派单", currentNode: "待派单", boxes: values.boxType, note: "计划任务已进入待派发池", pushed: false, timeline: [] };
+      const dispatchItem = { id: dispatchId, title: dispatchRaw.routeName, subtitle: waybillNo, status: "待派单", statusClass: "warning", fields: [["司机", "待分配"], ["车辆", "待分配"], ["挂车", "未绑定"], ["当前节点", "待派单"], ["派单方式", "待分配"], ["派单时间", "-"]], note: dispatchRaw.note, raw: dispatchRaw };
       moduleCatalog.dispatch.items.unshift(dispatchItem);
       persistCreatedRecord("waybill", item);
       persistCreatedRecord("dispatch", dispatchItem);
@@ -1114,22 +1311,18 @@ function createMobileRecord(moduleName, values) {
     return { id, title: values.routeName, subtitle: `${routeCode} · ${values.origin} → ${values.destination}`, status: values.routeState, statusClass: values.routeState === "启用" ? "success" : "muted", fields: [["线路编号", routeCode], ["客户 / 项目", `${raw.customerName} / ${raw.projectName}`], ["起运地 → 目的地", `${values.origin} → ${values.destination}`], ["里程", `${raw.mileage} KM`], ["预估收入", `¥${values.estimatedRevenue}`], ["提成方式", typeText]], note: values.remark || values.commissionRemark || "", raw };
   }
   if (moduleName === "dispatch") {
-    const waybill = moduleCatalog.waybill.items.find((item) => item.id === values.waybillId);
-    const driver = moduleCatalog.driver.items.find((item) => item.id === values.driverId);
-    const vehicle = moduleCatalog.vehicle.items.find((item) => item.id === values.vehicleId);
-    return { id: `PD-${String(moduleCatalog.dispatch.items.length + 1001)}`, title: waybill?.subtitle || "待确认线路", subtitle: waybill?.id || values.waybillId, status: "已派单", statusClass: "", fields: [["司机", driver?.title || ""], ["车辆", vehicle?.id || ""], ["当前节点", "待提货"], ["派单方式", "手动派单"], ["派单时间", new Date().toLocaleString("zh-CN", { hour12: false })]], note: values.note || "已推送至司机移动端", raw: values };
+    return buildDispatchRecord(values);
   }
-  if (moduleName === "vehicle") return { id: values.plateNo, title: values.vehicleType, subtitle: values.fleetName || values.fleet || "未设置车队", status: values.vehicleState, statusClass: values.vehicleState === "在用" ? "success" : values.vehicleState === "维修中" ? "warning" : "muted", fields: [["驾驶员", values.driver], ["车辆所属", values.ownership], ["车架号", values.vin], ["发动机号", values.engineNo], ["营运证号", values.permitNo], ["审验到期", values.inspectionDue], ["保险到期", values.insuranceDue], ...genericDetailFields(moduleName, values)], note: values.remark || "移动端新建车辆档案", raw: values };
-  if (moduleName === "driver") return { id: `SJ-${String(moduleCatalog.driver.items.length + 1001)}`, title: values.name, subtitle: `${values.fleet} · ${values.phone}`, status: values.driverState, statusClass: values.driverState === "空闲" ? "success" : values.driverState === "停用" ? "muted" : "", fields: [["准驾车型", values.licenseClass], ["认证", "待认证"], ["驾驶证到期", values.licenseExpiry], ["资格证到期", values.qualificationExpiry], ...genericDetailFields(moduleName, values)], note: values.remark || "自有司机", raw: values };
-  if (moduleName === "customer") return { id: values.customerNo, title: values.customerName, subtitle: `简称：${values.shortName || "-"}`, status: values.customerStatus, statusClass: values.customerStatus === "启用" ? "success" : "muted", fields: [["客户类型", values.customerType], ["联系人", values.contactName], ["手机", values.mobile], ["结算周期", values.settlementCycle], ...genericDetailFields(moduleName, values)], note: `默认装货地址：${values.loadAddress}`, raw: values };
-  if (moduleName === "trailer") return { id: `TR-${Date.now()}`, title: values.plateNo, subtitle: values.trailerType || "挂车", status: values.trailerState, statusClass: sharedStatusClass(values.trailerState), fields: [["车架号", values.vin], ["所属车队", values.fleet], ["营运证号", values.permitNo], ["审验到期", values.inspectionDue], ["保险到期", values.insuranceDue]], note: values.remark || "移动端新建挂车档案", raw: values };
+  if (["vehicle", "trailer", "driver", "customer"].includes(moduleName)) return buildAssetRecord(moduleName, values);
   return null;
 }
 
 function hasDuplicateRecord(moduleName, values) {
-  if (moduleName === "vehicle" && moduleCatalog.vehicle.items.some((item) => item.id === values.plateNo)) return "车牌号码已存在";
-  if (moduleName === "driver" && moduleCatalog.driver.items.some((item) => item.raw?.idCard === values.idCard)) return "身份证号码已存在";
-  if (moduleName === "customer" && moduleCatalog.customer.items.some((item) => item.id.toLowerCase() === values.customerNo.toLowerCase())) return "客户编号已存在";
+  const editingId = state.entryEditId;
+  if (moduleName === "vehicle" && moduleCatalog.vehicle.items.some((item) => item.id !== editingId && item.id === values.plateNo)) return "车牌号码已存在";
+  if (moduleName === "trailer" && moduleCatalog.trailer.items.some((item) => item.id !== editingId && item.raw?.plateNo === values.plateNo)) return "挂车车牌已存在";
+  if (moduleName === "driver" && moduleCatalog.driver.items.some((item) => item.id !== editingId && item.raw?.idCard === values.idCard)) return "身份证号码已存在";
+  if (moduleName === "customer" && moduleCatalog.customer.items.some((item) => item.id !== editingId && item.id.toLowerCase() === values.customerNo.toLowerCase())) return "客户编号已存在";
   return "";
 }
 
@@ -1139,11 +1332,20 @@ function publishMobileRecord(moduleName, item) {
   const raw = { ...(item.raw || {}) };
   if (moduleName === "waybill") { raw.waybillNo = raw.waybillNo || item.id; snapshot.waybills = [raw, ...(snapshot.waybills || []).filter((entry) => entry.waybillNo !== raw.waybillNo)]; }
   if (moduleName === "route") { raw.id = raw.id || item.id; raw.routeName = raw.routeName || item.title; snapshot.fixedRoutes = [raw, ...(snapshot.fixedRoutes || []).filter((entry) => entry.id !== raw.id)]; }
-  if (moduleName === "dispatch") { raw.id = raw.id || item.id; raw.waybillNo = raw.waybillNo || item.subtitle; snapshot.dispatches = [raw, ...(snapshot.dispatches || []).filter((entry) => entry.id !== raw.id)]; }
-  if (moduleName === "vehicle") { raw.plateNo = raw.plateNo || item.id; snapshot.vehicles = [raw, ...(snapshot.vehicles || []).filter((entry) => entry.plateNo !== raw.plateNo)]; }
-  if (moduleName === "trailer") { raw.id = raw.id || item.id; snapshot.trailers = [raw, ...(snapshot.trailers || []).filter((entry) => entry.id !== raw.id)]; }
-  if (moduleName === "driver") { raw.id = raw.id || item.id; snapshot.drivers = [raw, ...(snapshot.drivers || []).filter((entry) => entry.id !== raw.id)]; }
-  if (moduleName === "customer") { raw.customerNo = raw.customerNo || item.id; snapshot.customers = [raw, ...(snapshot.customers || []).filter((entry) => entry.customerNo !== raw.customerNo)]; }
+  if (moduleName === "dispatch") {
+    raw.id = raw.id || item.id;
+    raw.waybillNo = raw.waybillNo || item.subtitle;
+    snapshot.dispatches = [raw, ...(snapshot.dispatches || []).filter((entry) => entry.id !== raw.id)];
+    const sharedWaybills = Array.isArray(snapshot.waybills) ? snapshot.waybills : moduleCatalog.waybill.items.map((entry) => ({ ...(entry.raw || {}), waybillNo: entry.raw?.waybillNo || entry.id }));
+    snapshot.waybills = sharedWaybills.map((waybill) => waybill.waybillNo === raw.waybillNo ? {
+      ...waybill, dispatchDate: String(raw.dispatchTime || "").slice(0, 10), plateNo: raw.vehicleId || "", driverId: raw.driverId || "",
+      driverName: raw.driverName || "", trailerId: raw.trailerId || "", routeMileageSnapshot: raw.routeMileageSnapshot,
+    } : waybill);
+  }
+  if (moduleName === "vehicle") { raw.plateNo = raw.plateNo || item.id; const oldPlate = state.entryOriginalRaw?.plateNo; snapshot.vehicles = [raw, ...(snapshot.vehicles || []).filter((entry) => entry.plateNo !== raw.plateNo && entry.plateNo !== oldPlate)]; }
+  if (moduleName === "trailer") { raw.id = raw.id || item.id; const oldId = state.entryOriginalRaw?.id; snapshot.trailers = [raw, ...(snapshot.trailers || []).filter((entry) => entry.id !== raw.id && entry.id !== oldId)]; }
+  if (moduleName === "driver") { raw.id = raw.id || item.id; const oldId = state.entryOriginalRaw?.id; snapshot.drivers = [raw, ...(snapshot.drivers || []).filter((entry) => entry.id !== raw.id && entry.id !== oldId)]; }
+  if (moduleName === "customer") { raw.customerNo = raw.customerNo || item.id; const oldNo = state.entryOriginalRaw?.customerNo; snapshot.customers = [raw, ...(snapshot.customers || []).filter((entry) => entry.customerNo !== raw.customerNo && entry.customerNo !== oldNo)]; }
   window.AdminDataBridge.write(snapshot);
 }
 
@@ -1152,7 +1354,10 @@ function saveEntry(event) {
   const form = $("#managerEntryForm");
   if (!form.checkValidity()) { form.querySelectorAll("select:invalid").forEach((select) => select.classList.add("touched")); form.reportValidity(); return; }
   const formData = new FormData(form);
-  const values = Object.fromEntries([...formData.entries()].map(([key, value]) => [key, value instanceof File ? value.name : String(value).trim()]));
+  const values = Object.fromEntries([...formData.entries()]
+    .filter(([, value]) => !(value instanceof File) || Boolean(value.name))
+    .map(([key, value]) => [key, value instanceof File ? value.name : String(value).trim()]));
+  if (state.entryModule === "dispatch" && state.entryEditId) values.waybillId = state.entryOriginalRaw?.waybillNo || state.entryOriginalRaw?.waybillId || "";
   values.needReceipt = form.elements.needReceipt?.checked || false;
   values.receivedReceipt = form.elements.receivedReceipt?.checked || false;
   if (state.entryModule === "auto") {
@@ -1164,6 +1369,7 @@ function saveEntry(event) {
   }
   const duplicate = hasDuplicateRecord(state.entryModule, values);
   if (duplicate) { showToast(duplicate); return; }
+  const dispatchWasPending = state.entryModule === "dispatch" && (!state.entryEditId || state.entryOriginalRaw?.status === "待派单");
   const item = createMobileRecord(state.entryModule, values);
   if (!item) return;
   const moduleName = state.entryModule;
@@ -1178,8 +1384,23 @@ function saveEntry(event) {
   state.moduleFilter = "全部";
   renderModule();
   updateWorkbenchCounts();
-  if (editing && moduleName === "route") openDetail(item);
-  showToast(moduleName === "dispatch" ? "派单成功，已推送至司机移动端" : `${moduleCatalog[moduleName].title}已保存`);
+  if (moduleName === "dispatch") {
+    rebuildDispatchManagementCatalog();
+    rebuildCapacityCatalog(window.AdminDataBridge?.read?.()?.dispatches || moduleCatalog.dispatch.items.map((entry) => dispatchRawForItem(entry)));
+    if (editing && state.currentModule === "dispatch-management") {
+      openModule("dispatch");
+      openDetail(item);
+    } else if (editing) openDetail(item);
+  }
+  if (editing && ["route", "vehicle", "trailer", "driver", "customer"].includes(moduleName)) {
+    if (state.currentModule === "capacity") {
+      rebuildCapacityCatalog(window.AdminDataBridge?.read?.()?.dispatches || []);
+      const capacityId = moduleName === "vehicle" ? `vehicle-${item.raw?.plateNo || item.id}` : `driver-${item.raw?.id || item.id}`;
+      const capacityItem = moduleCatalog.capacity.items.find((entry) => entry.id === capacityId);
+      openDetail(capacityItem || item);
+    } else openDetail(item);
+  }
+  showToast(moduleName === "dispatch" ? (dispatchWasPending ? "派单成功，已推送至司机移动端" : "派单修改已保存并同步") : `${moduleCatalog[moduleName].title}已保存`);
 }
 
 function renderMessages() {
@@ -1214,6 +1435,11 @@ document.addEventListener("click", (event) => {
   const editRoute = event.target.closest("[data-edit-route]");
   if (editRoute) {
     openEntry("route", editRoute.dataset.editRoute);
+    return;
+  }
+  const editAsset = event.target.closest("[data-edit-module]");
+  if (editAsset && editAsset.id !== "detailActionButton") {
+    openEntry(editAsset.dataset.editModule, editAsset.dataset.editId);
     return;
   }
   if (drawerMessage) {
@@ -1277,8 +1503,8 @@ $("#detailBackButton").addEventListener("click", () => {
 });
 $("#modulePrimaryButton").addEventListener("click", () => openEntry(state.currentModule));
 $("#detailActionButton").addEventListener("click", (event) => {
-  const routeId = event.currentTarget.dataset.editRoute;
-  if (state.currentModule === "route" && routeId) openEntry("route", routeId);
+  const { editModule, editId } = event.currentTarget.dataset;
+  if (editModule && editId) openEntry(editModule, editId);
   else showToast("更多业务操作");
 });
 $("#entryBackButton").addEventListener("click", closeEntry);
@@ -1310,6 +1536,8 @@ $("#managerEntryContent").addEventListener("change", (event) => {
   if (event.target.name === "customerId") updateWaybillCustomer();
   if (event.target.name === "routeId") loadWaybillRouteDefaults();
   if (event.target.name === "waybillId") updateDispatchSummary();
+  if (state.entryModule === "dispatch" && event.target.name === "routeId") updateDispatchSummary();
+  if (state.entryModule === "dispatch" && event.target.name === "vehicleId") updateDispatchVehicle();
   if (event.target.name === "triggerMode") updateAutoMode();
   if (event.target.type === "file") {
     const picker = event.target.closest(".file-picker");
@@ -1356,6 +1584,7 @@ $("#readAllButton").addEventListener("click", () => { messages.forEach((item) =>
 
 loadSharedCatalog();
 loadCreatedRecords();
+rebuildDispatchManagementCatalog();
 updateWorkbenchCounts();
 renderWorkbench();
 renderMessages();
