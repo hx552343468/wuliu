@@ -23,17 +23,28 @@ const html = fs.readFileSync("index.html", "utf8");
 assert.match(html, /data-page="dispatch-management"[^>]*>派单管理</);
 assert.match(html, /id="dispatchManagementTaskStats"/);
 assert.match(html, /id="dispatchManagementCapacityStats"/);
+assert.match(html, /task-lane-column[\s\S]*dispatchManagementTaskStats[\s\S]*<section class="dispatch-management-lane task-lane"/);
+assert.match(html, /capacity-lane-column[\s\S]*dispatchManagementCapacityStats[\s\S]*<section class="dispatch-management-lane capacity-lane"/);
+assert.doesNotMatch(html, /<section class="dispatch-management-stats"/);
 assert.match(html, /id="dispatchManagementAutoBtn"/);
 assert.match(html, /id="dispatchManagementManualBtn"/);
 assert.match(html, /id="dispatchManagementTaskSelectAll"/);
 assert.match(html, /id="dispatchManagementCapacitySelectAll"/);
+assert.match(html, /id="dispatchManagementTaskCustomerSearch"/);
+assert.match(html, /id="dispatchManagementTaskTypeFilter"/);
+assert.match(html, /id="dispatchManagementTaskDateFilter"/);
+assert.match(html, /id="dispatchManagementTaskNumberSearch"/);
+assert.match(html, /id="dispatchManagementCapacityDriverSearch"/);
 assert.match(html, /id="dispatchManagementResultDialog"/);
+assert.match(html, /id="dispatchManagementConfirmDialog"/);
 assert.doesNotMatch(html, /id="dispatchManagementFeedback"/);
 assert.match(html, /id="dispatchManagementTaskPageSize"[^>]*>[\s\S]*value="10" selected>10 条\/页/);
 assert.doesNotMatch(html, /dispatch-management-selection/);
 assert.doesNotMatch(html, /dispatchManagementRefreshBtn/);
 const dispatchTaskHead = html.match(/<table class="dispatch-management-task-table">[\s\S]*?<\/thead>/)?.[0] || "";
 assert.doesNotMatch(dispatchTaskHead, /匹配状态/);
+assert.doesNotMatch(dispatchTaskHead, /操作/);
+assert.match(html, /司机 \/ 电话[\s\S]*车辆 \/ 挂车[\s\S]*当前进度[\s\S]*匹配值/);
 
 const financeDialogEnd = html.indexOf("</dialog>", html.indexOf('id="financeExpenseDialog"'));
 const financePageEnd = html.indexOf("</section>", financeDialogEnd);
@@ -125,16 +136,57 @@ assert.equal(getElement("#dispatchManagementTaskCount").textContent, "15 条待�
 assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /东方港联/);
 assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /WB20261010030/);
 assert.doesNotMatch(getElement("#dispatchManagementTaskBody").innerHTML, /WB20261010031/);
-assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /司机资质/);
-assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /dispatch-capacity-node-progress/);
-assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /auto-node-block completed/);
-assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /节点 ·/);
+assert.doesNotMatch(getElement("#dispatchManagementCapacityList").innerHTML, /司机资质|核载 \/ 容积|dispatch-capacity-node-progress/);
+assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /dispatch-capacity-progress-track/);
+assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /匹配值/);
+assert.match(getElement("#dispatchManagementCapacityList").innerHTML, />100<\/strong>/);
 assert.doesNotMatch(getElement("#dispatchManagementCapacityList").innerHTML, /待开始/);
-assert.equal((getElement("#dispatchManagementCapacityList").innerHTML.match(/dispatch-capacity-node-progress/g) || []).length, 1,
-  "only moving or near-complete capacity should render node progress");
+assert.equal((getElement("#dispatchManagementCapacityList").innerHTML.match(/dispatch-capacity-row/g) || []).length, 4,
+  "all capacity resources should render as list rows");
 assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /type="checkbox"/);
 assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /type="checkbox"/);
 assert.equal(getElement("#dispatchManagementManualBtn").disabled, true);
+
+const taskSearch = getElement("#dispatchManagementTaskCustomerSearch");
+taskSearch.value = "海晟";
+taskSearch.listeners.input();
+assert.equal(getElement("#dispatchManagementTaskCount").textContent, "1 条待匹配");
+assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /海晟供应链/);
+assert.doesNotMatch(getElement("#dispatchManagementTaskBody").innerHTML, /东方港联/);
+taskSearch.value = "";
+taskSearch.listeners.input();
+const taskNumberSearch = getElement("#dispatchManagementTaskNumberSearch");
+taskNumberSearch.value = "JH2026101003";
+taskNumberSearch.listeners.input();
+assert.equal(getElement("#dispatchManagementTaskCount").textContent, "1 条待匹配");
+assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /WB20261010023/);
+taskNumberSearch.value = "";
+taskNumberSearch.listeners.input();
+const taskTypeFilter = getElement("#dispatchManagementTaskTypeFilter");
+taskTypeFilter.value = "排重箱（A→B）";
+taskTypeFilter.listeners.change();
+assert.equal(getElement("#dispatchManagementTaskCount").textContent, "2 条待匹配");
+assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /DM-004/);
+taskTypeFilter.value = "";
+taskTypeFilter.listeners.change();
+const taskDateFilter = getElement("#dispatchManagementTaskDateFilter");
+taskDateFilter.value = "2026-10-11";
+taskDateFilter.listeners.change();
+assert.equal(getElement("#dispatchManagementTaskCount").textContent, "0 条待匹配");
+assert.match(getElement("#dispatchManagementTaskBody").innerHTML, /没有符合条件的任务/);
+taskDateFilter.value = "2026-10-10";
+taskDateFilter.listeners.change();
+assert.equal(getElement("#dispatchManagementTaskCount").textContent, "15 条待匹配");
+taskDateFilter.value = "";
+taskDateFilter.listeners.change();
+const capacityDriverSearch = getElement("#dispatchManagementCapacityDriverSearch");
+capacityDriverSearch.value = "赵亮";
+capacityDriverSearch.listeners.input();
+assert.equal(getElement("#dispatchManagementCapacityCount").textContent, "1 组运力");
+assert.match(getElement("#dispatchManagementCapacityList").innerHTML, /赵亮/);
+assert.doesNotMatch(getElement("#dispatchManagementCapacityList").innerHTML, /王海/);
+capacityDriverSearch.value = "";
+capacityDriverSearch.listeners.input();
 
 getElement("#dispatchManagementCapacityList").listeners.click({
   target: {
@@ -156,6 +208,17 @@ changeSelection("#dispatchManagementCapacityList", "dispatchManagementCapacity",
 assert.equal(getElement("#dispatchManagementManualBtn").disabled, false);
 assert.equal(getElement("#dispatchManagementManualLabel").textContent, "批量派单 (2)");
 getElement("#dispatchManagementManualBtn").listeners.click();
+
+assert.equal(getElement("#dispatchManagementConfirmDialog").open, true, "manual dispatch should require confirmation");
+assert.equal(windowMock.DispatchManagement.getDemoState().assignmentCount, 0, "manual dispatch must not execute before confirmation");
+assert.equal((getElement("#dispatchManagementConfirmMatches").innerHTML.match(/<tr>/g) || []).length, 2);
+assert.match(getElement("#dispatchManagementConfirmMatches").innerHTML, /王海[\s\S]*浙B20001/);
+assert.equal(windowMock.DispatchManagement.getPendingPlan().assignments.length, 2);
+getElement("#dispatchManagementConfirmCancel").listeners.click();
+assert.equal(getElement("#dispatchManagementConfirmDialog").open, false);
+assert.equal(windowMock.DispatchManagement.getDemoState().assignmentCount, 0, "cancel should leave tasks and vehicles unchanged");
+getElement("#dispatchManagementManualBtn").listeners.click();
+getElement("#dispatchManagementConfirmSubmit").listeners.click();
 
 const manualState = windowMock.DispatchManagement.getDemoState();
 assert.equal(manualState.assignmentCount, 2);
@@ -185,6 +248,12 @@ assert.equal(resetState.assignmentCount, 0);
 assert.equal(resetState.tasks.filter((task) => task.status === "待派单").length, 15);
 
 getElement("#dispatchManagementAutoBtn").listeners.click();
+assert.equal(getElement("#dispatchManagementConfirmDialog").open, true, "automatic dispatch should require confirmation");
+assert.equal(windowMock.DispatchManagement.getDemoState().assignmentCount, 0, "automatic dispatch must not execute before confirmation");
+assert.equal((getElement("#dispatchManagementConfirmMatches").innerHTML.match(/<tr>/g) || []).length, 3);
+assert.equal(getElement("#dispatchManagementConfirmUnassigned").hidden, false);
+assert.equal(windowMock.DispatchManagement.getPendingPlan().unassignedTaskIds.length, 12);
+getElement("#dispatchManagementConfirmSubmit").listeners.click();
 const autoState = windowMock.DispatchManagement.getDemoState();
 assert.equal(autoState.assignmentCount, 3);
 assert.equal(autoState.tasks.filter((task) => task.status === "已派单").length, 3);

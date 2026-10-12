@@ -30,26 +30,23 @@
           <section class="workbench-block module-block">
             <header class="block-heading"><div><h2>业务工作台</h2><p>后台核心功能快捷入口</p></div><button id="manageModulesButton" type="button">全部功能</button></header>
             <div class="module-grid" id="moduleGrid">
-              <button data-open-module="waybill" type="button"><span class="module-icon blue"><i data-lucide="file-text"></i></span><strong>运单管理</strong><small>4 条记录</small></button>
               <button data-open-module="plan" type="button"><span class="module-icon blue"><i data-lucide="clipboard-list"></i></span><strong>计划管理</strong><small>计划任务</small></button>
-              <button data-open-module="route" type="button"><span class="module-icon purple"><i data-lucide="route"></i></span><strong>固定线路</strong><small>4 条线路</small></button>
+              <button data-open-module="route" type="button"><span class="module-icon purple"><i data-lucide="route"></i></span><strong>固定线路管理</strong><small>4 条线路</small></button>
+              <button data-open-module="dispatch-management" type="button"><span class="module-icon cyan"><i data-lucide="list-checks"></i></span><strong>派单管理</strong><small>待匹配任务</small></button>
               <button data-open-module="dispatch" type="button"><span class="module-icon cyan"><i data-lucide="send"></i></span><strong>派单列表</strong><small>2 条待执行</small></button>
               <button data-open-module="capacity" type="button"><span class="module-icon cyan"><i data-lucide="gauge"></i></span><strong>运力管理</strong><small>车辆与司机</small></button>
-              <button data-open-module="auto" type="button"><span class="module-icon orange"><i data-lucide="wand-sparkles"></i></span><strong>自动派单</strong><small>自动执行中</small></button>
-              <button data-open-module="vehicle" type="button"><span class="module-icon green"><i data-lucide="truck"></i></span><strong>车辆档案</strong><small>2 台自营</small></button>
+              <button data-open-module="vehicle" type="button"><span class="module-icon green"><i data-lucide="truck"></i></span><strong>车辆档案管理</strong><small>2 台自营</small></button>
               <button data-open-module="trailer" type="button"><span class="module-icon green"><i data-lucide="container"></i></span><strong>挂车档案</strong><small>挂车台账</small></button>
               <button data-open-module="driver" type="button"><span class="module-icon indigo"><i data-lucide="user-round"></i></span><strong>司机档案</strong><small>5 名司机</small></button>
               <button data-open-module="customer" type="button"><span class="module-icon rose"><i data-lucide="building-2"></i></span><strong>客户管理</strong><small>6 家客户</small></button>
-              <button data-open-module="reminder" type="button"><span class="module-icon yellow"><i data-lucide="shield-alert"></i></span><strong>到期提醒</strong><small>2 项待处理</small></button>
             </div>
           </section>
 
           <section class="workbench-block quick-block">
             <header class="block-heading"><div><h2>快捷操作</h2><p>常用业务快速办理</p></div></header>
             <div class="quick-actions">
-              <button data-quick-action="waybill" type="button"><span><i data-lucide="file-plus-2"></i></span><strong>新增运单</strong><i data-lucide="chevron-right"></i></button>
-              <button data-quick-action="dispatch" type="button"><span><i data-lucide="send"></i></span><strong>新增派单</strong><i data-lucide="chevron-right"></i></button>
-              <button data-open-module="auto" type="button"><span><i data-lucide="refresh-cw"></i></span><strong>执行自动派单</strong><i data-lucide="chevron-right"></i></button>
+              <button data-quick-action="dispatch" type="button"><span><i data-lucide="send"></i></span><strong>手动派单</strong><i data-lucide="chevron-right"></i></button>
+              <button data-open-module="dispatch-management" type="button"><span><i data-lucide="list-checks"></i></span><strong>进入派单管理</strong><i data-lucide="chevron-right"></i></button>
             </div>
           </section>
 
@@ -74,7 +71,7 @@
         </section>
 
         <section class="module-view" id="moduleView" aria-hidden="true">
-          <header class="subpage-header"><button class="subpage-back" id="moduleBackButton" type="button" aria-label="返回工作台"><i data-lucide="chevron-left"></i></button><div><span id="moduleEyebrow">业务管理</span><strong id="moduleTitle">运单管理</strong></div><button class="subpage-action" id="modulePrimaryButton" type="button"><i data-lucide="plus"></i></button></header>
+          <header class="subpage-header"><button class="subpage-back" id="moduleBackButton" type="button" aria-label="返回工作台"><i data-lucide="chevron-left"></i></button><div><span id="moduleEyebrow">业务管理</span><strong id="moduleTitle">业务管理</strong></div><button class="subpage-action" id="modulePrimaryButton" type="button"><i data-lucide="plus"></i></button></header>
           <div class="module-scroll">
             <label class="mobile-search"><i data-lucide="search"></i><input id="moduleSearch" type="search" placeholder="搜索关键字" /><button id="clearModuleSearch" type="button" aria-label="清空"><i data-lucide="x"></i></button></label>
             <div class="module-filter-row" id="moduleFilters"></div>

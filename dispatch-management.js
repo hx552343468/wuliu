@@ -5,6 +5,15 @@
   const elements = {
     autoButton: page.querySelector("#dispatchManagementAutoBtn"),
     manualButton: page.querySelector("#dispatchManagementManualBtn"),
+    confirmDialog: page.querySelector("#dispatchManagementConfirmDialog"),
+    confirmTitle: page.querySelector("#dispatchManagementConfirmTitle"),
+    confirmMessage: page.querySelector("#dispatchManagementConfirmMessage"),
+    confirmSummary: page.querySelector("#dispatchManagementConfirmSummary"),
+    confirmMatches: page.querySelector("#dispatchManagementConfirmMatches"),
+    confirmUnassigned: page.querySelector("#dispatchManagementConfirmUnassigned"),
+    confirmClose: page.querySelector("#dispatchManagementConfirmClose"),
+    confirmCancel: page.querySelector("#dispatchManagementConfirmCancel"),
+    confirmSubmit: page.querySelector("#dispatchManagementConfirmSubmit"),
     resultDialog: page.querySelector("#dispatchManagementResultDialog"),
     resultClose: page.querySelector("#dispatchManagementResultClose"),
     resultIcon: page.querySelector("#dispatchManagementResultIcon"),
@@ -27,7 +36,12 @@
     taskSelectAll: page.querySelector("#dispatchManagementTaskSelectAll"),
     capacitySelectAll: page.querySelector("#dispatchManagementCapacitySelectAll"),
     taskPageSize: page.querySelector("#dispatchManagementTaskPageSize"),
+    taskCustomerSearch: page.querySelector("#dispatchManagementTaskCustomerSearch"),
+    taskTypeFilter: page.querySelector("#dispatchManagementTaskTypeFilter"),
+    taskDateFilter: page.querySelector("#dispatchManagementTaskDateFilter"),
+    taskNumberSearch: page.querySelector("#dispatchManagementTaskNumberSearch"),
     capacityFilter: page.querySelector("#dispatchManagementCapacityFilter"),
+    capacityDriverSearch: page.querySelector("#dispatchManagementCapacityDriverSearch"),
     taskPageText: page.querySelector("#dispatchManagementTaskPageText"),
     capacityPageText: page.querySelector("#dispatchManagementCapacityPageText"),
     taskPrev: page.querySelector("#dispatchManagementTaskPrev"),
@@ -43,9 +57,10 @@
   let visibleCapacityPlates = [];
   let taskPage = 1;
   let capacityPage = 1;
-  const capacityPageSize = 6;
+  const capacityPageSize = 10;
   let permissionOverrides = null;
   let focusedCapacityPlate = "";
+  let pendingDispatchPlan = null;
 
   const capacityNodeSequences = {
     "提空装货": ["已提空", "空箱在途", "到达仓库", "完成装货", "重箱在途", "重箱进站", "完成落重"],
@@ -234,10 +249,25 @@
   }
 
   function renderTasks(tasks) {
+    const customerSearch = elements.taskCustomerSearch.value.trim().toLocaleLowerCase();
+    const taskType = elements.taskTypeFilter.value;
+    const taskDate = elements.taskDateFilter.value;
+    const taskNumberSearch = elements.taskNumberSearch.value.trim().toLocaleLowerCase();
+    const filteredTasks = tasks.filter((task) => {
+      const context = getTaskContext(task);
+      const waybill = getWaybill(task);
+      const identifiers = [task.id, task.waybillNo, task.planTaskNo, task.dispatchNo, waybill.waybillNo, waybill.planTaskNo, waybill.dispatchNo]
+        .filter(Boolean).join(" ").toLocaleLowerCase();
+      const date = String(task.executionTime || task.orderDate || waybill.executionTime || waybill.orderDate || "").slice(0, 10);
+      return (!customerSearch || `${context.customer} ${context.project}`.toLocaleLowerCase().includes(customerSearch))
+        && (!taskType || context.taskType === taskType)
+        && (!taskDate || date === taskDate)
+        && (!taskNumberSearch || identifiers.includes(taskNumberSearch));
+    });
     const pageSize = Number(elements.taskPageSize.value) || 10;
-    const totalPages = Math.max(1, Math.ceil(tasks.length / pageSize));
+    const totalPages = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
     taskPage = Math.min(Math.max(1, taskPage), totalPages);
-    const visibleTasks = tasks.slice((taskPage - 1) * pageSize, taskPage * pageSize);
+    const visibleTasks = filteredTasks.slice((taskPage - 1) * pageSize, taskPage * pageSize);
     visibleTaskIds = visibleTasks.map((task) => task.id);
     elements.taskBody.innerHTML = visibleTasks.length ? visibleTasks.map((task) => {
       const context = getTaskContext(task);
@@ -249,11 +279,10 @@
         <td><span class="dispatch-task-type">${escapeHtml(context.taskType)}</span></td>
         <td><span class="dispatch-task-route" title="${escapeHtml(context.route)}">${escapeHtml(context.route)}</span></td>
         <td>${escapeHtml(context.planDate)}</td>
-        <td><button class="link-btn" data-select-dispatch-task="${escapeHtml(task.id)}" type="button">${selected ? "取消" : "选择"}</button></td>
       </tr>`;
-    }).join("") : '<tr><td colspan="7"><div class="dispatch-management-empty"><i data-lucide="circle-check-big" aria-hidden="true"></i><strong>暂无待派单任务</strong></div></td></tr>';
-    elements.taskCount.textContent = `${tasks.length} 条待匹配`;
-    elements.taskPageText.textContent = `第 ${taskPage} / ${totalPages} 页 · 共 ${tasks.length} 条`;
+    }).join("") : `<tr><td colspan="6"><div class="dispatch-management-empty"><i data-lucide="${tasks.length ? "search-x" : "circle-check-big"}" aria-hidden="true"></i><strong>${tasks.length ? "没有符合条件的任务" : "暂无待派单任务"}</strong></div></td></tr>`;
+    elements.taskCount.textContent = `${filteredTasks.length} 条待匹配`;
+    elements.taskPageText.textContent = `第 ${taskPage} / ${totalPages} 页 · 共 ${filteredTasks.length} 条`;
     elements.taskPrev.disabled = taskPage <= 1;
     elements.taskNext.disabled = taskPage >= totalPages;
     elements.taskSelectAll.disabled = visibleTaskIds.length === 0;
@@ -261,40 +290,44 @@
     elements.taskSelectAll.indeterminate = visibleTaskIds.some((id) => selectedTaskIds.has(id)) && !elements.taskSelectAll.checked;
   }
 
-  function renderCapacity(resources) {
+  function getCapacityMatchScore(resource, pendingTasks = []) {
+    if (resource.state === "停用") return 0;
+    if (resource.state === "空闲") return 100;
+    if (resource.state === "即将完成") return 68;
+    if (pendingTasks.length) {
+      const bestScore = Math.max(...pendingTasks.map((task) => scoreResource(task, resource)));
+      return Math.max(25, Math.min(58, Math.round(bestScore / 4)));
+    }
+    return 45;
+  }
+
+  function renderCapacity(resources, pendingTasks = []) {
     const filter = elements.capacityFilter.value;
-    const filtered = resources.filter((resource) => !filter || resource.state === filter);
+    const driverSearch = elements.capacityDriverSearch.value.trim().toLocaleLowerCase();
+    const filtered = resources.filter((resource) => {
+      const driverText = `${resource.driver?.name || ""} ${resource.driver?.phone || ""}`.toLocaleLowerCase();
+      return (!filter || resource.state === filter) && (!driverSearch || driverText.includes(driverSearch));
+    });
     const totalPages = Math.max(1, Math.ceil(filtered.length / capacityPageSize));
     capacityPage = Math.min(Math.max(1, capacityPage), totalPages);
     const visibleResources = filtered.slice((capacityPage - 1) * capacityPageSize, capacityPage * capacityPageSize);
     visibleCapacityPlates = visibleResources.filter((resource) => resource.state === "空闲").map((resource) => resource.vehicle.plateNo);
-    elements.capacityList.innerHTML = visibleResources.length ? visibleResources.map((resource) => {
-      const { vehicle, driver, trailer, state, energyType, activeDispatch, displayProgress } = resource;
+    elements.capacityList.innerHTML = visibleResources.length ? `<div class="dispatch-capacity-list-head" aria-hidden="true"><span>选择</span><span>司机 / 电话</span><span>车辆 / 挂车</span><span>当前进度</span><span>匹配值</span></div>${visibleResources.map((resource) => {
+      const { vehicle, driver, trailer, state, activeDispatch, displayProgress } = resource;
       const selectable = state === "空闲";
-      const showProgress = ["运输中", "即将完成"].includes(state);
       const selected = selectedPlates.has(vehicle.plateNo);
       const focused = focusedCapacityPlate === vehicle.plateNo;
-      const qualification = driver ? `${driver.licenseClass || "A2"} · 从业资格至 ${driver.qualificationExpiry || "-"}` : "未绑定司机";
-      return `<label class="dispatch-capacity-item ${selected ? "selected" : ""} ${focused ? "focused" : ""} ${selectable ? "available" : "unavailable"}" data-capacity-plate="${escapeHtml(vehicle.plateNo)}" tabindex="0">
-        <input type="checkbox" name="dispatchManagementCapacity" value="${escapeHtml(vehicle.plateNo)}" ${selected ? "checked" : ""} ${selectable ? "" : "disabled"} aria-label="选择运力 ${escapeHtml(vehicle.plateNo)}" />
-        <div class="dispatch-capacity-item-head">
-          <div class="dispatch-capacity-driver"><span class="dispatch-capacity-avatar"><i data-lucide="user-round" aria-hidden="true"></i></span><div><strong>${escapeHtml(driver?.name || "未绑定司机")}</strong><small>${escapeHtml(driver?.phone || "暂无联系电话")}</small></div></div>
-          <span class="dispatch-resource-state state-${state}">${state}</span>
-        </div>
-        <div class="dispatch-capacity-details">
-          <div><span>司机资质</span><strong>${escapeHtml(qualification)}</strong></div>
-          <div><span>车辆</span><strong>${escapeHtml(vehicle.plateNo)} · ${escapeHtml(vehicle.drivingLicenseNo || "行驶证待维护")}</strong></div>
-          <div><span>核载 / 容积</span><strong>${escapeHtml(vehicle.ratedLoad || "-")} 吨 / ${resource.volume} m³</strong></div>
-          <div><span>挂车</span><strong>${escapeHtml(trailer ? `${trailer.plateNo} · ${trailer.trailerType}` : "未绑定挂车")}</strong></div>
-        </div>
-        <div class="dispatch-capacity-item-foot">
-          <span class="dispatch-energy-type energy-${energyType}">${energyType}</span>
-          <span>${escapeHtml(vehicle.vehicleType)}</span>
-          ${state === "空闲" ? '<span class="dispatch-capacity-ready">可立即接单</span>' : activeDispatch ? `<span class="dispatch-capacity-progress-text">任务 ${escapeHtml(activeDispatch.waybillNo || activeDispatch.id)}</span>` : state === "停用" ? '<span class="dispatch-capacity-progress-text">暂不可用</span>' : '<span class="dispatch-capacity-progress-text">当前任务执行中</span>'}
-        </div>
-        ${showProgress ? renderCapacityNodeProgress(displayProgress) : ""}
+      const matchScore = getCapacityMatchScore(resource, pendingTasks);
+      const progressLabel = state === "空闲" ? "空闲待命" : state === "停用" ? "暂不可用" : displayProgress.stage;
+      const taskLabel = activeDispatch ? `任务 ${activeDispatch.waybillNo || activeDispatch.id}` : state === "空闲" ? "当前无运输任务" : state === "停用" ? "请先恢复资源" : "当前任务执行中";
+      return `<label class="dispatch-capacity-item dispatch-capacity-row ${selected ? "selected" : ""} ${focused ? "focused" : ""} ${selectable ? "available" : "unavailable"}" data-capacity-plate="${escapeHtml(vehicle.plateNo)}" tabindex="0">
+        <span class="dispatch-capacity-select"><input type="checkbox" name="dispatchManagementCapacity" value="${escapeHtml(vehicle.plateNo)}" ${selected ? "checked" : ""} ${selectable ? "" : "disabled"} aria-label="选择运力 ${escapeHtml(vehicle.plateNo)}" /></span>
+        <span class="dispatch-capacity-driver"><span class="dispatch-capacity-avatar"><i data-lucide="user-round" aria-hidden="true"></i></span><span><strong>${escapeHtml(driver?.name || "未绑定司机")}</strong><small>${escapeHtml(driver?.phone || "暂无联系电话")}</small></span></span>
+        <span class="dispatch-capacity-vehicle"><strong>${escapeHtml(vehicle.plateNo || "未绑定车辆")}</strong><small>${escapeHtml(trailer ? `${trailer.plateNo} · ${trailer.trailerType || "挂车"}` : "未绑定挂车")}</small></span>
+        <span class="dispatch-capacity-progress"><span class="dispatch-capacity-progress-head"><strong>${escapeHtml(progressLabel)}</strong><em class="dispatch-resource-state state-${state}">${state}</em><b>${displayProgress.progress}%</b></span><span class="dispatch-capacity-progress-track"><i style="width:${displayProgress.progress}%"></i></span><small>${escapeHtml(taskLabel)}</small></span>
+        <span class="dispatch-capacity-match"><strong>${matchScore}</strong><small>匹配值</small><em>${selectable ? "可派单" : "暂不参与"}</em></span>
       </label>`;
-    }).join("") : '<div class="dispatch-management-empty capacity-empty"><i data-lucide="truck" aria-hidden="true"></i><strong>当前筛选下暂无运力</strong></div>';
+    }).join("")}` : '<div class="dispatch-management-empty capacity-empty"><i data-lucide="truck" aria-hidden="true"></i><strong>当前筛选下暂无运力</strong></div>';
     elements.capacityCount.textContent = `${filtered.length} 组运力`;
     elements.capacityPageText.textContent = `第 ${capacityPage} / ${totalPages} 页 · 共 ${filtered.length} 组`;
     elements.capacityPrev.disabled = capacityPage <= 1;
@@ -341,7 +374,7 @@
     updateSelectionState(tasks, resources);
     renderStats(resources);
     renderTasks(tasks);
-    renderCapacity(resources);
+    renderCapacity(resources, tasks);
     applyPermissions();
     elements.updatedAt.textContent = `更新于 ${new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())}`;
     window.lucide?.createIcons();
@@ -468,50 +501,90 @@
     demoAssignments.set(resource.vehicle.plateNo, task);
   }
 
-  function runManualDispatch() {
-    const tasks = getPendingTasks().filter((item) => selectedTaskIds.has(item.id));
-    const resources = getCapacityResources().filter((item) => selectedPlates.has(item.vehicle.plateNo) && item.state === "空闲");
-    if (!tasks.length) {
-      showFeedback("请至少选择一条待派任务。", "warning");
-      return;
-    }
-    if (resources.length < tasks.length) {
-      showFeedback(`已选择 ${tasks.length} 条任务，但只有 ${resources.length} 组空闲运力，请继续选择。`, "warning");
-      return;
+  function buildDispatchPlan(mode) {
+    const pending = getPendingTasks();
+    const targetTasks = mode === "manual"
+      ? pending.filter((task) => selectedTaskIds.has(task.id))
+      : selectedTaskIds.size ? pending.filter((task) => selectedTaskIds.has(task.id)) : pending;
+    const capacity = getCapacityResources().filter((resource) => resource.state === "空闲");
+    const resources = mode === "manual"
+      ? capacity.filter((resource) => selectedPlates.has(resource.vehicle.plateNo))
+      : capacity;
+    if (!targetTasks.length) return { error: mode === "manual" ? "请至少选择一条待派任务。" : "当前没有待派单任务。" };
+    if (!resources.length) return { error: mode === "manual" ? "请至少选择一组空闲运力。" : "当前没有可用的空闲运力。" };
+    if (mode === "manual" && resources.length < targetTasks.length) {
+      return { error: `已选择 ${targetTasks.length} 条任务，但只有 ${resources.length} 组空闲运力，请继续选择。` };
     }
     const availableResources = [...resources];
-    const assignments = tasks.map((task) => {
+    const assignments = [];
+    targetTasks.forEach((task) => {
+      if (!availableResources.length) return;
       availableResources.sort((left, right) => scoreResource(task, right) - scoreResource(task, left));
       const resource = availableResources.shift();
-      assignTask(task, resource, "manual");
-      return { task, resource };
+      assignments.push({ task, resource, score: getCapacityMatchScore(resource, targetTasks) });
     });
-    showDispatchResult("manual", tasks.length, assignments.length);
+    return { mode, tasks: targetTasks, assignments, unassigned: targetTasks.slice(assignments.length) };
+  }
+
+  function openDispatchConfirmation(mode) {
+    const plan = buildDispatchPlan(mode);
+    if (plan.error) {
+      showFeedback(plan.error, "warning");
+      return;
+    }
+    pendingDispatchPlan = plan;
+    const isAuto = mode === "auto";
+    elements.confirmTitle.textContent = isAuto ? "确认自动派单" : "确认批量派单";
+    elements.confirmMessage.textContent = isAuto
+      ? "以下为系统根据当前匹配规则生成的派单方案，确认后将立即执行。"
+      : "以下为已选任务与空闲车辆的匹配方案，确认后将立即执行。";
+    elements.confirmSummary.innerHTML = `<span>待处理任务 <strong>${plan.tasks.length}</strong></span><span>匹配车辆 <strong>${plan.assignments.length}</strong></span>${plan.unassigned.length ? `<span class="warning">未匹配 <strong>${plan.unassigned.length}</strong></span>` : ""}`;
+    elements.confirmMatches.innerHTML = plan.assignments.map(({ task, resource, score }) => {
+      const context = getTaskContext(task);
+      return `<tr>
+        <td><strong>${escapeHtml(task.waybillNo)}</strong><small>${escapeHtml(context.customer)} · ${escapeHtml(context.project)}</small></td>
+        <td><span title="${escapeHtml(context.route)}">${escapeHtml(context.route)}</span><small>${escapeHtml(context.taskType)}</small></td>
+        <td><strong>${escapeHtml(resource.driver?.name || "未绑定司机")}</strong><small>${escapeHtml(resource.driver?.phone || "-")}</small></td>
+        <td><strong>${escapeHtml(resource.vehicle.plateNo)}</strong><small>${escapeHtml(resource.trailer?.plateNo || resource.trailer?.id || "无挂车")}</small></td>
+        <td><b class="dispatch-confirm-score">${score}</b></td>
+      </tr>`;
+    }).join("");
+    elements.confirmUnassigned.hidden = plan.unassigned.length === 0;
+    elements.confirmUnassigned.innerHTML = plan.unassigned.length
+      ? `<strong>未匹配任务（${plan.unassigned.length}）</strong><span>${plan.unassigned.map((task) => escapeHtml(task.waybillNo)).join("、")}。可用空闲运力不足，确认后这些任务将保留为待派单。</span>`
+      : "";
+    window.lucide?.createIcons();
+    if (!elements.confirmDialog.open) elements.confirmDialog.showModal();
+  }
+
+  function confirmDispatchPlan() {
+    const plan = pendingDispatchPlan;
+    if (!plan) return;
+    const currentPending = new Map(getPendingTasks().map((task) => [task.id, task]));
+    const currentIdle = new Map(getCapacityResources().filter((resource) => resource.state === "空闲").map((resource) => [resource.vehicle.plateNo, resource]));
+    const validAssignments = plan.assignments.filter(({ task, resource }) => currentPending.has(task.id) && currentIdle.has(resource.vehicle.plateNo));
+    if (validAssignments.length !== plan.assignments.length) {
+      pendingDispatchPlan = null;
+      elements.confirmDialog.close();
+      showFeedback("任务或运力状态已变化，请重新核对派单匹配。", "warning");
+      render();
+      return;
+    }
+    validAssignments.forEach(({ task, resource }) => assignTask(currentPending.get(task.id), currentIdle.get(resource.vehicle.plateNo), plan.mode));
+    elements.confirmDialog.close();
+    pendingDispatchPlan = null;
+    showDispatchResult(plan.mode, plan.tasks.length, validAssignments.length);
     selectedTaskIds.clear();
     selectedPlates.clear();
     render();
   }
 
+  function runManualDispatch() {
+    openDispatchConfirmation("manual");
+  }
+
   function runAutomaticDispatch() {
-    const pending = getPendingTasks();
-    const targetTasks = selectedTaskIds.size ? pending.filter((task) => selectedTaskIds.has(task.id)) : pending;
-    const idleResources = getCapacityResources().filter((resource) => resource.state === "空闲");
-    if (!targetTasks.length || !idleResources.length) {
-      showFeedback(!targetTasks.length ? "当前没有待派单任务。" : "当前没有可用的空闲运力。", "warning");
-      return;
-    }
-    let assigned = 0;
-    targetTasks.forEach((task) => {
-      if (!idleResources.length) return;
-      idleResources.sort((left, right) => scoreResource(task, right) - scoreResource(task, left));
-      const resource = idleResources.shift();
-      assignTask(task, resource, "auto");
-      assigned += 1;
-    });
-    showDispatchResult("auto", targetTasks.length, assigned);
-    selectedTaskIds.clear();
-    selectedPlates.clear();
-    render();
+    openDispatchConfirmation("auto");
   }
 
   elements.taskBody.addEventListener("change", (event) => {
@@ -521,16 +594,6 @@
     else selectedTaskIds.delete(input.value);
     render();
   });
-  elements.taskBody.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-select-dispatch-task]");
-    const taskId = button?.dataset.selectDispatchTask;
-    if (!taskId) return;
-    if (selectedTaskIds.has(taskId)) selectedTaskIds.delete(taskId);
-    else selectedTaskIds.add(taskId);
-    render();
-    if (!selectedPlates.size) showFeedback("任务已选择，请在右侧选择足够的空闲运力。", "info");
-  });
-
   elements.capacityList.addEventListener("change", (event) => {
     const input = event.target.closest('input[name="dispatchManagementCapacity"]');
     if (!input) return;
@@ -564,6 +627,9 @@
 
   elements.autoButton.addEventListener("click", runAutomaticDispatch);
   elements.manualButton.addEventListener("click", runManualDispatch);
+  elements.confirmClose.addEventListener("click", () => { pendingDispatchPlan = null; elements.confirmDialog.close(); });
+  elements.confirmCancel.addEventListener("click", () => { pendingDispatchPlan = null; elements.confirmDialog.close(); });
+  elements.confirmSubmit.addEventListener("click", confirmDispatchPlan);
   elements.resultClose.addEventListener("click", () => elements.resultDialog.close());
   elements.resultStay.addEventListener("click", () => elements.resultDialog.close());
   elements.resultView.addEventListener("click", () => {
@@ -571,6 +637,9 @@
     elements.resultDialog.close();
     if (target && typeof switchPage === "function") switchPage(target);
   });
+  [elements.taskCustomerSearch, elements.taskNumberSearch].forEach((input) => input.addEventListener("input", () => { taskPage = 1; render(); }));
+  [elements.taskTypeFilter, elements.taskDateFilter].forEach((input) => input.addEventListener("change", () => { taskPage = 1; render(); }));
+  elements.capacityDriverSearch.addEventListener("input", () => { capacityPage = 1; render(); });
   elements.taskPageSize.addEventListener("change", () => { taskPage = 1; render(); });
   elements.capacityFilter.addEventListener("change", () => { capacityPage = 1; render(); });
   elements.taskPrev.addEventListener("click", () => { taskPage -= 1; render(); });
@@ -583,6 +652,11 @@
     render,
     reset: () => { resetDemoState(); render(); },
     getDemoState: () => ({ tasks: demoTasks.map((task) => ({ ...task })), assignmentCount: demoAssignments.size }),
+    getPendingPlan: () => pendingDispatchPlan ? {
+      mode: pendingDispatchPlan.mode,
+      assignments: pendingDispatchPlan.assignments.map(({ task, resource }) => ({ taskId: task.id, plateNo: resource.vehicle.plateNo })),
+      unassignedTaskIds: pendingDispatchPlan.unassigned.map((task) => task.id),
+    } : null,
     setPermissions(permissions) {
       permissionOverrides = { auto: permissions?.auto !== false, manual: permissions?.manual !== false };
       render();

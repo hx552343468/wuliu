@@ -245,6 +245,11 @@ button { cursor: pointer; }
 .order-route span { margin: 0 7px; color: #a3adbc; font-weight: 400; }
 .order-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: var(--muted); font-size: 10px; }
 .order-info b { color: #59667b; font-weight: 600; }
+.order-card-actions { display: flex; gap: 8px; margin-top: 12px; }
+.order-contact-action { min-height: 38px; flex: 0.8; border: 1px solid #dfe3ef; border-radius: 19px; padding: 0 16px; background: #fff; color: #616b82; font-size: 11px; font-weight: 700; }
+.order-contact-action:active { transform: scale(.97); }
+.order-progress-action { min-height: 38px; flex: 1.2; border: 1px solid var(--primary); border-radius: 19px; padding: 0 16px; background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 7px 16px rgba(90,79,242,.18); }
+.order-progress-action:active { transform: scale(.97); }
 
 .profile-view { padding-top: 12px; }
 .profile-hero { display: flex; align-items: center; gap: 13px; padding: 12px 4px 20px; }

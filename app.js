@@ -220,6 +220,7 @@ const pageViews = {
   route: document.querySelector("#routePage"),
   dispatch: document.querySelector("#dispatchPage"),
   dispatchDetail: document.querySelector("#dispatchDetailPage"),
+  planTaskDetail: document.querySelector("#planTaskDetailPage"),
   dispatchManagement: document.querySelector("#dispatchManagementPage"),
   capacity: document.querySelector("#capacityPage"),
   autoDispatch: document.querySelector("#autoDispatchPage"),
@@ -239,6 +240,7 @@ const pageMeta = {
   "dispatch-management": { title: "派单管理", kicker: "计划管理与派发 / 调度工作台", view: "dispatchManagement" },
   "dispatch-list": { title: "派单列表", kicker: "计划管理与派发 / 派单调度", view: "dispatch" },
   "dispatch-detail": { title: "派单详情", kicker: "计划管理与派发 / 派单列表 / 派单详情", view: "dispatchDetail", navPage: "dispatch-list" },
+  "plan-task-detail": { title: "计划 / 派单详情", kicker: "计划管理与派发 / 计划管理 / 详情", view: "planTaskDetail", navPage: "waybill" },
   "capacity-management": { title: "运力管理", kicker: "计划管理与派发 / 运力状态", view: "capacity" },
   "auto-dispatch": { title: "自动派单", kicker: "计划管理与派发 / 智能调度", view: "autoDispatch" },
   "auto-dispatch-config": { title: "自动派单配置", kicker: "系统配置 / 自动派单", view: "autoDispatchConfig" },
@@ -944,6 +946,7 @@ let dispatchCurrentPage = 1;
 let dispatchPageSize = 10;
 let deletingDispatchId = "";
 let currentDispatchDetailId = "";
+let currentPlanTaskDetailId = "";
 let dispatchDetailPhotoTargets = [];
 let dispatchPhotoPreviewObjectUrl = "";
 let activePageName = "vehicle-dashboard";
@@ -956,6 +959,13 @@ const dispatchForm = document.querySelector("#dispatchForm");
 const dispatchDetailDialog = document.querySelector("#dispatchDetailDialog");
 const dispatchDetailPageContent = document.querySelector("#dispatchDetailPageContent");
 const dispatchDetailPageSubtitle = document.querySelector("#dispatchDetailPageSubtitle");
+const planTaskDetailPageContent = document.querySelector("#planTaskDetailPageContent");
+const planTaskDetailPageSubtitle = document.querySelector("#planTaskDetailPageSubtitle");
+const planTaskDetailBackBtn = document.querySelector("#planTaskDetailBackBtn");
+const cancelPlanDialog = document.querySelector("#cancelPlanDialog");
+const cancelPlanText = document.querySelector("#cancelPlanText");
+const confirmCancelPlanBtn = document.querySelector("#confirmCancelPlanBtn");
+let cancellingPlanTaskId = "";
 const dispatchDetailEditBtn = document.querySelector("#dispatchDetailEditBtn");
 const dispatchDetailBackBtn = document.querySelector("#dispatchDetailBackBtn");
 const dispatchPhotoPreviewDialog = document.querySelector("#dispatchPhotoPreviewDialog");
@@ -1001,17 +1011,20 @@ function getPlanTaskGroups(rows = waybills) {
     const dispatchList = typeof dispatches === "undefined" ? [] : group.waybills.flatMap((waybill) => dispatches.filter((dispatch) => dispatch.waybillNo === waybill.waybillNo));
     const completed = dispatchList.filter((item) => item.status === "已完成").length;
     const active = dispatchList.filter((item) => ["已派单", "运输中"].includes(item.status)).length;
-    const pending = group.waybills.length - completed - active;
-    const hasException = dispatchList.some((item) => ["异常", "取消"].includes(item.status));
-    const status = hasException ? "异常" : completed === group.waybills.length ? "已完成" : active ? "进行中" : "待派发";
-    return { ...group, dispatchList, completed, active, pending: Math.max(0, pending), status, progress: group.waybills.length ? Math.round((completed / group.waybills.length) * 100) : 0 };
+    const cancelled = dispatchList.filter((item) => item.status === "取消").length;
+    const pending = group.waybills.length - completed - active - cancelled;
+    const isCancelled = group.waybills.every((waybill) => waybill.planStatus === "已取消") || dispatchList.length > 0 && dispatchList.every((item) => item.status === "取消" || item.planStatus === "已取消");
+    const allTasksCompleted = group.waybills.length > 0 && group.waybills.every((waybill) => waybill.status === "已完成");
+    const status = isCancelled ? "已取消" : allTasksCompleted || completed === group.waybills.length ? "已完成" : active ? "进行中" : "待派发";
+    const canCancel = !["已取消", "已完成", "进行中"].includes(status) && !dispatchList.some((item) => ["运输中", "已完成"].includes(item.status));
+    return { ...group, dispatchList, completed, active, pending: Math.max(0, pending), status, canCancel, progress: group.waybills.length ? Math.round((completed / group.waybills.length) * 100) : 0 };
   });
 }
 
 function renderRows(rows) {
   publishAdminDataSnapshot();
   const groups = getPlanTaskGroups(rows);
-  if (resultText) resultText.textContent = `共 ${groups.length} 个计划任务，子运单 ${rows.length} 条；可进入详情查看派单与运单明细`;
+  if (resultText) resultText.textContent = `共 ${groups.length} 个计划任务，子任务 ${rows.length} 条；可进入详情查看计划信息与派单情况`;
   if (!groups.length) {
     tableBody.innerHTML = '<tr><td class="no-data-cell" colspan="12">暂无符合条件的计划任务</td></tr>';
     return;
@@ -1032,9 +1045,9 @@ function renderRows(rows) {
       <td>${String(first.executionTime || `${first.orderDate || "-"} 08:00`).replace("T", " ")}</td>
       <td><strong>${group.completed} / ${group.waybills.length}</strong><div class="task-progress"><span style="width:${group.progress}%"></span></div><small>待派发 ${group.pending} · 进行中 ${group.active}</small></td>
       <td><span class="dispatch-mode ${auto ? "auto" : group.status === "待派发" ? "pending" : "manual"}">${mode}</span></td>
-      <td><span class="dispatch-status ${group.status === "异常" ? "exception" : group.status === "已完成" ? "done" : group.status === "进行中" ? "active" : "pending"}">${group.status}</span></td>
+      <td><span class="dispatch-status ${group.status === "已取消" ? "cancelled" : group.status === "已完成" ? "done" : group.status === "进行中" ? "active" : "pending"}">${group.status}</span></td>
       <td class="money">${formatMoney(amount)}</td>
-      <td class="fixed-action-column"><div class="vehicle-action-group"><button class="link-btn" data-view-plan-dispatch="${group.id}" type="button">查看派单详情</button><button class="link-btn" data-view-plan-waybills="${group.id}" type="button">查看运单详情</button></div></td>
+      <td class="fixed-action-column"><div class="vehicle-action-group"><button class="link-btn" data-view-plan-dispatch="${dashboardEscape(group.id)}" type="button">查看详情</button>${group.canCancel ? `<button class="link-btn danger-link" data-cancel-plan="${dashboardEscape(group.id)}" type="button">取消计划</button>` : ""}</div></td>
     </tr>`;
   }).join("");
 }
@@ -4054,6 +4067,9 @@ function switchPage(pageName) {
   if (meta.view === "dispatchDetail") {
     renderDispatchDetailPage(currentDispatchDetailId);
   }
+  if (meta.view === "planTaskDetail") {
+    renderPlanTaskDetailPage(currentPlanTaskDetailId);
+  }
   if (meta.view === "dispatchManagement") {
     window.DispatchManagement?.render();
   }
@@ -4392,10 +4408,6 @@ function openPlanTaskDialog(mode = "single") {
   refreshPlanTaskRouteOptions();
   document.querySelector("#planExecutionTime").value = getPlanTaskDefaultTime();
   document.querySelector("#planBoxType").value = "40HQ";
-  document.querySelector("#planAdvanceMinutes").disabled = true;
-  document.querySelector("#planBatchAdvanceMinutes").disabled = true;
-  document.querySelector("#planManualDispatch").checked = true;
-  document.querySelector("#planBatchManualDispatch").checked = true;
   planTaskBatchInput.value = "";
   renderPlanTaskList();
   setPlanTaskMode(mode);
@@ -4437,19 +4449,23 @@ function parsePlanTaskCsv(text) {
   if (!lines.length) return [];
   const first = parsePlanTaskCsvLine(lines[0]);
   const hasHeader = first.some((value) => ["执行时间", "线路", "柜型", "客户名称", "项目名称", "任务类型", "自动派发", "派单方式", "提前量", "运单数量"].includes(value));
+  const headers = hasHeader ? first : [];
   const rows = hasHeader ? lines.slice(1) : lines;
   return rows.map((line) => {
     const values = parsePlanTaskCsvLine(line);
+    const getValue = (names, fallbackIndex) => {
+      const headerIndex = headers.findIndex((header) => names.includes(header));
+      return values[headerIndex >= 0 ? headerIndex : fallbackIndex] || "";
+    };
+    const legacyDispatchColumns = !hasHeader && values.length >= 9;
     return {
-      executionTime: values[0] || "",
-      routeValue: values[1] || "",
-      boxType: values[2] || "40HQ",
-      customerName: values[3] || "",
-      projectName: values[4] || "",
-      taskType: values[5] || "提空装货",
-      autoDispatch: values[6] || "",
-      dispatchAdvanceMinutes: values[7] || "",
-      quantity: values[8] || "1",
+      executionTime: getValue(["执行时间"], 0),
+      routeValue: getValue(["线路"], 1),
+      boxType: getValue(["柜型"], 2) || "40HQ",
+      customerName: getValue(["客户名称"], 3),
+      projectName: getValue(["项目名称"], 4),
+      taskType: getValue(["任务类型"], 5) || "提空装货",
+      quantity: getValue(["运单数量", "任务数量"], legacyDispatchColumns ? 8 : 6) || "1",
     };
   });
 }
@@ -4458,11 +4474,6 @@ function resolvePlanTaskRoute(value) {
   const target = normalize(value);
   return fixedRoutes.find((route) => [route.id, route.routeCode, route.routeName].some((candidate) => normalize(candidate) === target)) ||
     fixedRoutes.find((route) => normalize(route.routeName).includes(target) && target) || null;
-}
-
-function isPlanTaskAutoDispatch(value, fallback = false) {
-  if (value === "") return fallback;
-  return ["是", "自动", "自动派发", "true", "1", "yes"].includes(normalize(value));
 }
 
 function normalizePlanTaskExecutionTime(value) {
@@ -4510,7 +4521,7 @@ function createPlanTaskRecords(rows) {
       const containers = [{ boxNo: "", sealNo: "", boxType, pickupPoint: routeStops[0].value, returnPoint: routeStops[3].value }];
       const newWaybill = {
         waybillNo, planTaskId, planTaskNo, planQuantity, childSequence: childIndex + 1, orderDate, executionTime, taskType, projectId, projectName,
-        autoDispatch: Boolean(row.autoDispatch), dispatchAdvanceMinutes: Number(row.dispatchAdvanceMinutes) || 0,
+        autoDispatch: false, dispatchAdvanceMinutes: 0,
         routeId: route.id, customerId: customer?.customerNo || route.customerId || account?.customerId || "-", customerName: itemCustomerName,
         billNo: "-", loadAddress: `${routeStops[1].value} / ${routeStops[2].value}`, dispatchNo: `PC-${waybillNo.slice(-8)}`,
         dispatchDate: "-", containers, boxNo1: "-", sealNo1: "-", boxNo2: "-", sealNo2: "-", boxType,
@@ -4541,45 +4552,67 @@ function refreshAfterPlanTaskCreate(created) {
   renderDashboard();
 }
 
+function renderPlanTaskDetailPage(planTaskId) {
+  const group = getPlanTaskGroups(waybills).find((item) => item.id === planTaskId);
+  if (!group || !planTaskDetailPageContent || !planTaskDetailPageSubtitle) return;
+  const first = group.first;
+  const route = getRouteForWaybill(first.waybillNo);
+  const dispatchByWaybill = new Map(group.dispatchList.map((dispatch) => [dispatch.waybillNo, dispatch]));
+  const assignedCount = group.waybills.filter((waybill) => {
+    const dispatch = dispatchByWaybill.get(waybill.waybillNo);
+    return dispatch && dispatch.status !== "待派单";
+  }).length;
+  const modeLabel = (dispatch) => !dispatch || dispatch.status === "待派单" ? "待分配" : getDispatchMode(dispatch) === "auto" ? "自动派单" : "手动派单";
+  const safe = dashboardEscape;
+  const assignedProgress = group.waybills.length ? Math.round(assignedCount / group.waybills.length * 100) : 0;
+  planTaskDetailPageSubtitle.textContent = `${group.taskNo} / ${first.customerName || "-"} / ${first.projectName || "-"}`;
+  const boxTypes = [...new Set(group.waybills.map((waybill) => waybill.boxType).filter(Boolean))].join("、") || "-";
+  planTaskDetailPageContent.innerHTML = `<section class="plan-detail-section"><div class="plan-detail-section-heading"><strong>计划信息</strong><span>${safe(group.status)}</span></div><div class="plan-detail-info-grid"><div><span>计划编号</span><strong>${safe(group.taskNo)}</strong></div><div><span>客户</span><strong>${safe(first.customerName || route?.customerName || "-")}</strong></div><div><span>项目</span><strong>${safe(first.projectName || route?.projectName || "-")}</strong></div><div><span>任务类型</span><strong>${safe(first.taskType || "-")}</strong></div><div><span>执行时间</span><strong>${safe(String(first.executionTime || `${first.orderDate || "-"} 08:00`).replace("T", " "))}</strong></div><div><span>运输线路</span><strong>${safe(route?.routeName || first.routeId || "-")}</strong></div><div><span>计划数量</span><strong>${group.waybills.length} 项任务</strong></div><div><span>柜型</span><strong>${safe(boxTypes)}</strong></div></div>${route ? `<div class="plan-detail-route"><span>线路节点</span>${renderRouteStops(route, "plan-route-stops")}</div>` : ""}</section><section class="plan-detail-section plan-detail-dispatches"><div class="plan-detail-section-heading"><div><strong>派单情况</strong><small>${assignedCount} / ${group.waybills.length} 项已派单</small></div><div class="plan-detail-progress"><span><i style="width:${assignedProgress}%"></i></span><b>${assignedProgress}%</b></div></div><div class="detail-list-table"><table><thead><tr><th>任务编号</th><th>派单方式</th><th>司机 / 车辆</th><th>派单状态</th><th>当前节点</th><th>派单时间</th></tr></thead><tbody>${group.waybills.map((waybill, index) => { const dispatch = dispatchByWaybill.get(waybill.waybillNo); const taskLabel = group.waybills.length > 1 ? `${group.taskNo}-${String(index + 1).padStart(2, "0")}` : waybill.waybillNo; return `<tr><td><strong>${safe(taskLabel)}</strong></td><td>${safe(modeLabel(dispatch))}</td><td>${safe(dispatch?.driverName || "待分配")} / ${safe(dispatch?.vehicleId || "-")}</td><td><span class="dispatch-status ${getDispatchStatusClass(dispatch?.status || "待派单")}">${safe(dispatch?.status || "待派单")}</span></td><td>${safe(dispatch?.currentNode || "待派单")}</td><td>${safe(dispatch?.dispatchTime || "-")}</td></tr>`; }).join("")}</tbody></table></div></section>`;
+}
+
 function openPlanDispatchDetail(planTaskId) {
-  const group = getPlanTaskGroups(waybills).find((item) => item.id === planTaskId);
-  const dialog = document.querySelector("#planDispatchDetailDialog");
-  const content = document.querySelector("#planDispatchDetailContent");
-  if (!group || !dialog || !content) return;
-  document.querySelector("#planDispatchDetailSubTitle").textContent = `${group.taskNo} / ${group.first.customerName || "-"} / ${group.first.projectName || "-"}`;
-  content.innerHTML = `<div class="detail-summary-grid"><div><span>计划运单</span><strong>${group.waybills.length} 条</strong></div><div><span>已派发</span><strong>${group.dispatchList.filter((item) => item.status !== "待派单").length} 条</strong></div><div><span>进行中</span><strong>${group.active} 条</strong></div><div><span>待派发</span><strong>${group.pending} 条</strong></div></div><div class="detail-list-table"><table><thead><tr><th>运单</th><th>派单方式</th><th>司机 / 车辆</th><th>派单状态</th><th>当前节点</th><th>操作</th></tr></thead><tbody>${group.waybills.map((waybill) => { const dispatch = dispatches.find((item) => item.waybillNo === waybill.waybillNo); return `<tr><td><strong>${waybill.waybillNo}</strong></td><td>${dispatch ? (getDispatchMode(dispatch) === "auto" ? "自动派单" : dispatch.status === "待派单" ? "待分配" : "手动派单") : "待分配"}</td><td>${dispatch?.driverName || "待分配"} / ${dispatch?.vehicleId || "-"}</td><td><span class="dispatch-status ${getDispatchStatusClass(dispatch?.status || "待派单")}">${dispatch?.status || "待派单"}</span></td><td>${dispatch?.currentNode || "待派单"}</td><td><button class="link-btn" data-view-waybill-detail="${waybill.waybillNo}" type="button">查看运单</button></td></tr>`; }).join("")}</tbody></table></div>`;
-  dialog.showModal();
+  currentPlanTaskDetailId = planTaskId;
+  if (!getPlanTaskGroups(waybills).some((item) => item.id === planTaskId)) return;
+  switchPage("plan-task-detail");
 }
 
-function openPlanWaybillDetail(planTaskId) {
+function requestCancelPlan(planTaskId) {
   const group = getPlanTaskGroups(waybills).find((item) => item.id === planTaskId);
-  const dialog = document.querySelector("#planWaybillDetailDialog");
-  const content = document.querySelector("#planWaybillDetailContent");
-  if (!group || !dialog || !content) return;
-  document.querySelector("#planWaybillDetailSubTitle").textContent = `${group.taskNo} / 共 ${group.waybills.length} 条运单`;
-  const route = fixedRoutes.find((item) => item.id === group.first.routeId);
-  content.innerHTML = `<div class="detail-summary-grid"><div><span>客户</span><strong>${group.first.customerName || "-"}</strong></div><div><span>项目</span><strong>${group.first.projectName || "-"}</strong></div><div><span>线路</span><strong>${route?.routeName || "-"}</strong></div><div><span>任务类型</span><strong>${group.first.taskType || "-"}</strong></div></div>${route ? `<section class="detail-route-stops"><div><strong>线路节点</strong><span>提箱、装卸货与落箱地址</span></div>${renderRouteStops(route, "plan-route-stops")}</section>` : ""}<div class="detail-list-table"><table><thead><tr><th>运单号</th><th>序号</th><th>柜型</th><th>箱号 / 封号</th><th>节点</th><th>操作</th></tr></thead><tbody>${group.waybills.map((waybill) => { const dispatch = dispatches.find((item) => item.waybillNo === waybill.waybillNo); return `<tr><td><strong>${waybill.waybillNo}</strong></td><td>${waybill.childSequence || 1} / ${waybill.planQuantity || group.waybills.length}</td><td>${waybill.boxType || "-"}</td><td>${formatWaybillBoxes(waybill)}</td><td>${dispatch?.currentNode || "待派单"}</td><td><button class="link-btn" data-view-waybill-detail="${waybill.waybillNo}" type="button">查看详情</button></td></tr>`; }).join("")}</tbody></table></div>`;
-  dialog.showModal();
+  if (!group?.canCancel || !cancelPlanDialog) return;
+  cancellingPlanTaskId = group.id;
+  cancelPlanText.textContent = `确认取消计划 ${group.taskNo} 吗？该计划下尚未开始的派单将一并取消。`;
+  cancelPlanDialog.showModal();
 }
 
-function openWaybillDetail(waybillNo) {
-  const waybill = waybills.find((item) => item.waybillNo === waybillNo);
-  if (!waybill) return;
-  const dispatch = dispatches.find((item) => item.waybillNo === waybillNo);
-  const content = document.querySelector("#planWaybillDetailContent");
-  const dialog = document.querySelector("#planWaybillDetailDialog");
-  if (!content || !dialog) return;
-  document.querySelector("#planWaybillDetailSubTitle").textContent = `${waybill.waybillNo} / ${waybill.customerName || "-"}`;
-  const timeline = dispatch?.timeline?.length ? dispatch.timeline.map((item) => `<div class="timeline-item"><span class="timeline-dot"></span><div class="timeline-main"><strong>${item.node}</strong><time>${item.time}</time><p>${item.desc}</p>${item.photos?.length ? `<div class="photo-list">${item.photos.map((photo) => `<span class="photo-chip">▧ ${photo}</span>`).join("")}</div>` : ""}</div></div>`).join("") : '<div class="empty-detail">暂无节点上报记录</div>';
-  content.innerHTML = `<div class="detail-summary-grid"><div><span>计划任务</span><strong>${waybill.planTaskNo || waybill.planTaskId || "-"}</strong></div><div><span>线路</span><strong>${fixedRoutes.find((item) => item.id === waybill.routeId)?.routeName || "-"}</strong></div><div><span>柜型</span><strong>${waybill.boxType || "-"}</strong></div><div><span>箱号 / 封号</span><strong>${formatWaybillBoxes(waybill)}</strong></div></div><div class="dispatch-detail-layout"><div><h3>运输节点</h3>${timeline}</div><aside class="dispatch-detail-side"><div><span>派单状态</span><strong>${dispatch?.status || "待派单"}</strong></div><div><span>司机</span><strong>${dispatch?.driverName || "待分配"}</strong></div><div><span>车辆</span><strong>${dispatch?.vehicleId || "待分配"}</strong></div></aside></div>`;
-  dialog.showModal();
+function cancelPlan(planTaskId) {
+  const group = getPlanTaskGroups(waybills).find((item) => item.id === planTaskId);
+  if (!group?.canCancel) return;
+  group.waybills.forEach((waybill) => { waybill.planStatus = "已取消"; });
+  group.dispatchList.forEach((dispatch) => {
+    if (dispatch.status === "取消") {
+      dispatch.planStatus = "已取消";
+      return;
+    }
+    dispatch.status = "取消";
+    dispatch.planStatus = "已取消";
+    dispatch.currentNode = "已取消";
+    dispatch.timeline = Array.isArray(dispatch.timeline) ? dispatch.timeline : [];
+    dispatch.timeline.push({ node: "已取消", time: new Date().toLocaleString("zh-CN", { hour12: false }), desc: `计划 ${group.taskNo} 已取消`, photos: [] });
+  });
+  saveWaybills();
+  saveDispatches();
+  syncDriverOperationalStates();
+  cancelPlanDialog.close();
+  cancellingPlanTaskId = "";
+  renderRows(filterRows(new FormData(queryForm)));
+  renderDispatchPage(getFilteredDispatches());
+  renderDriverPage(getFilteredDrivers());
+  renderDashboard();
 }
 
 addBtn.addEventListener("click", () => openPlanTaskDialog("single"));
 batchPlanTaskBtn.addEventListener("click", () => openPlanTaskDialog("batch"));
 document.querySelectorAll("[data-plan-mode]").forEach((button) => button.addEventListener("click", () => setPlanTaskMode(button.dataset.planMode)));
-document.querySelectorAll('input[name="dispatchMode"]').forEach((input) => input.addEventListener("change", (event) => { document.querySelector("#planAdvanceMinutes").disabled = event.target.value !== "auto"; }));
-document.querySelectorAll('input[name="batchDispatchMode"]').forEach((input) => input.addEventListener("change", (event) => { document.querySelector("#planBatchAdvanceMinutes").disabled = event.target.value !== "auto"; }));
 document.querySelector("#planCustomerSelect")?.addEventListener("change", (event) => {
   refreshPlanTaskProjectOptions(event.target.value);
   document.querySelector("#planCustomerName").value = routeAccountCatalog.find((item) => item.customerId === event.target.value)?.customerName || "";
@@ -4642,7 +4675,7 @@ document.querySelector("#planTaskCsvFile").addEventListener("change", (event) =>
   reader.readAsText(file, "UTF-8");
 });
 document.querySelector("#downloadPlanTaskTemplateBtn").addEventListener("click", () => {
-  const csv = "执行时间,线路,柜型,客户名称,项目名称,任务类型,派单方式,提前量,运单数量\n2026-09-28 08:00,XL-HM-BYD,40HQ,华贸,比亚迪,提空装货,手动派单,0,3\n";
+  const csv = "执行时间,线路,柜型,客户名称,项目名称,任务类型,运单数量\n2026-09-28 08:00,XL-HM-BYD,40HQ,华贸,比亚迪,提空装货,3\n";
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
   link.download = "计划任务导入模板.csv";
@@ -4654,9 +4687,7 @@ planTaskForm.addEventListener("submit", (event) => {
   const formData = new FormData(planTaskForm);
   let rows;
   if (planTaskForm.dataset.mode === "batch") {
-    const fallbackAuto = formData.get("batchDispatchMode") === "auto";
-    const fallbackAdvance = Number(formData.get("batchAdvanceMinutes")) || 0;
-    rows = parsePlanTaskCsv(formData.get("batchInput")).map((row) => ({ ...row, autoDispatch: isPlanTaskAutoDispatch(row.autoDispatch, fallbackAuto), dispatchAdvanceMinutes: row.dispatchAdvanceMinutes === "" ? fallbackAdvance : Number(row.dispatchAdvanceMinutes) || 0 }));
+    rows = parsePlanTaskCsv(formData.get("batchInput"));
   } else {
     const quantity = Math.min(100, Math.max(1, Number(formData.get("quantity")) || 1));
     if (planTaskListItems.length !== quantity) {
@@ -4666,7 +4697,7 @@ planTaskForm.addEventListener("submit", (event) => {
     const taskItems = planTaskListItems.length === quantity
       ? planTaskListItems.map((item) => ({ routeId: item.routeId || formData.get("routeId"), boxType: item.boxType || formData.get("boxType") }))
       : Array.from({ length: quantity }, () => ({ routeId: formData.get("routeId"), boxType: formData.get("boxType") }));
-    rows = [{ executionTime: formData.get("executionTime"), routeId: formData.get("routeId"), boxType: formData.get("boxType"), customerName: formData.get("customerName"), projectName: formData.get("projectName"), taskType: formData.get("taskType"), autoDispatch: formData.get("dispatchMode") === "auto", dispatchAdvanceMinutes: Number(formData.get("dispatchAdvanceMinutes")) || 0, quantity, taskItems }];
+    rows = [{ executionTime: formData.get("executionTime"), routeId: formData.get("routeId"), boxType: formData.get("boxType"), customerName: formData.get("customerName"), projectName: formData.get("projectName"), taskType: formData.get("taskType"), quantity, taskItems }];
   }
   const result = createPlanTaskRecords(rows);
   if (!result.created.length) {
@@ -4799,22 +4830,28 @@ queryForm.addEventListener("submit", (event) => {
 });
 
 tableBody.addEventListener("click", (event) => {
+  const cancelButton = event.target.closest("[data-cancel-plan]");
+  if (cancelButton) {
+    requestCancelPlan(cancelButton.dataset.cancelPlan);
+    return;
+  }
   const dispatchButton = event.target.closest("[data-view-plan-dispatch]");
-  const waybillButton = event.target.closest("[data-view-plan-waybills]");
   if (dispatchButton) openPlanDispatchDetail(dispatchButton.dataset.viewPlanDispatch);
-  if (waybillButton) openPlanWaybillDetail(waybillButton.dataset.viewPlanWaybills);
 });
 
-document.querySelector("#planDispatchDetailContent")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-view-waybill-detail]");
-  if (button) openWaybillDetail(button.dataset.viewWaybillDetail);
+planTaskDetailBackBtn?.addEventListener("click", () => switchPage("waybill"));
+document.querySelector("#cancelPlanDialogCloseBtn")?.addEventListener("click", () => {
+  if (cancelPlanDialog?.open) cancelPlanDialog.close();
+  cancellingPlanTaskId = "";
 });
-document.querySelector("#planWaybillDetailContent")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-view-waybill-detail]");
-  if (button) openWaybillDetail(button.dataset.viewWaybillDetail);
+confirmCancelPlanBtn?.addEventListener("click", () => {
+  if (cancellingPlanTaskId) cancelPlan(cancellingPlanTaskId);
 });
-document.querySelector("#closePlanDispatchDetailBtn")?.addEventListener("click", () => document.querySelector("#planDispatchDetailDialog")?.close());
-document.querySelector("#closePlanWaybillDetailBtn")?.addEventListener("click", () => document.querySelector("#planWaybillDetailDialog")?.close());
+cancelPlanDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  cancelPlanDialog.close();
+  cancellingPlanTaskId = "";
+});
 
 document.querySelectorAll("[data-page]").forEach((item) => {
   item.addEventListener("click", () => switchPage(item.dataset.page));
