@@ -591,7 +591,7 @@ const drivers = [
     entryDate: "2021-03-15", driverType: "自有司机", driverState: "运输中", certificationStatus: "verified", fleet: "宁波一队",
     licenseNo: "330206198805182418", licenseClass: "A2", licenseIssueDate: "2014-05-18", licenseExpiry: "2027-05-18",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330206002891", qualificationExpiry: "2026-10-08",
-    qualificationAttachment: "从业资格证照片", bankCard: "6222020200008812", bankName: "中国工商银行宁波北仑支行", remark: "",
+    qualificationAttachment: "从业资格证照片", bankCard: "6222020200008812", bankName: "中国工商银行宁波北仑支行", remark: "长期负责北仑港区集装箱运输",
   },
   {
     id: "SJ-1002", name: "赵亮", gender: "男", idCard: "310115198912093617", phone: "13900006662",
@@ -599,7 +599,7 @@ const drivers = [
     entryDate: "2022-07-08", driverType: "自有司机", driverState: "运输中", certificationStatus: "verified", fleet: "临港车队",
     licenseNo: "310115198912093617", licenseClass: "A2", licenseIssueDate: "2015-09-28", licenseExpiry: "2026-09-28",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "310115006720", qualificationExpiry: "2026-12-18",
-    qualificationAttachment: "从业资格证照片", bankCard: "6217001200006635", bankName: "中国建设银行上海临港支行", remark: "",
+    qualificationAttachment: "从业资格证照片", bankCard: "6217001200006635", bankName: "中国建设银行上海临港支行", remark: "熟悉洋山港及临港作业流程",
   },
   {
     id: "SJ-1003", name: "刘军", gender: "男", idCard: "320500198706263011", phone: "13700003335",
@@ -615,7 +615,7 @@ const drivers = [
     entryDate: "2023-02-06", driverType: "自有司机", driverState: "空闲", certificationStatus: "verified", fleet: "杭州车队",
     licenseNo: "330109199003154812", licenseClass: "A2", licenseIssueDate: "2016-03-15", licenseExpiry: "2028-03-15",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330109007721", qualificationExpiry: "2027-12-20",
-    qualificationAttachment: "从业资格证照片", bankCard: "6212261200002289", bankName: "中国工商银行杭州萧山支行", remark: "",
+    qualificationAttachment: "从业资格证照片", bankCard: "6212261200002289", bankName: "中国工商银行杭州萧山支行", remark: "主要负责杭州至宁波往返线路",
   },
   {
     id: "SJ-1005", name: "周凯", gender: "男", idCard: "330205199511083219", phone: "13500007719",
@@ -623,7 +623,7 @@ const drivers = [
     entryDate: "2026-10-08", driverType: "自有司机", driverState: "停用", certificationStatus: "unverified", fleet: "宁波二队",
     licenseNo: "330205199511083219", licenseClass: "A2", licenseIssueDate: "2019-11-08", licenseExpiry: "2029-11-08",
     licenseAttachment: "驾驶证扫描件", qualificationNo: "330205008519", qualificationExpiry: "2028-06-30",
-    qualificationAttachment: "从业资格证照片", bankCard: "", bankName: "", remark: "入职资料待复核",
+    qualificationAttachment: "从业资格证照片", bankCard: "6222020200007719", bankName: "中国工商银行宁波江北支行", remark: "入职资料待复核",
   },
 ];
 
@@ -644,6 +644,45 @@ function ensureDefaultDrivers() {
 }
 
 ensureDefaultDrivers();
+
+function normalizeDriverRecord(record = {}, defaults = {}, index = 0) {
+  const merged = { ...defaults, ...record };
+  const rawSequence = String(merged.id || index + 1).replace(/\D/g, "");
+  const sequence = rawSequence.slice(-4).padStart(4, "0");
+  const demoValues = {
+    id: `SJ-TEST-${sequence}`,
+    name: `测试司机${sequence.slice(-2)}`,
+    gender: "男",
+    idCard: `33020619900101${sequence}`,
+    phone: `1380000${sequence}`,
+    address: "宁波市北仑区新碶街道测试路 88 号",
+    emergencyContact: "李女士",
+    emergencyPhone: `1390000${sequence}`,
+    entryDate: "2026-03-18",
+    driverType: "自有司机",
+    driverState: "停用",
+    certificationStatus: "unverified",
+    fleet: "宁波测试车队",
+    licenseNo: `33020619900101${sequence}`,
+    licenseClass: "A2",
+    licenseIssueDate: "2018-06-18",
+    licenseExpiry: "2029-06-18",
+    licenseAttachment: "驾驶证测试扫描件.pdf",
+    qualificationNo: `33020600${sequence}`,
+    qualificationExpiry: "2029-12-31",
+    qualificationAttachment: "从业资格证测试照片.jpg",
+    bankCard: `622202020000${sequence}`,
+    bankName: "中国工商银行宁波北仑支行",
+    remark: "测试档案，证照资料齐全",
+  };
+  Object.entries(demoValues).forEach(([field, fallback]) => {
+    const value = String(merged[field] ?? "").trim();
+    if (!value || ["undefined", "null", "nan"].includes(value.toLowerCase())) merged[field] = fallback;
+  });
+  return merged;
+}
+
+drivers.forEach((driver, index) => Object.assign(driver, normalizeDriverRecord(driver, {}, index)));
 
 function enabledOwnDrivers() {
   return drivers.filter((driver) => driver.driverType === "自有司机" && driver.driverState !== "停用");
@@ -853,13 +892,13 @@ function hydrateAdminDataSnapshot() {
   ].forEach(([target, records, key, secondaryKey]) => {
     if (!Array.isArray(records)) return;
     const defaultsByKey = new Map(target.map((record) => [record?.[key], record]).filter(([value]) => value));
-    const normalizedRecords = records.map((record) => {
+    const normalizedRecords = records.map((record, index) => {
       const defaults = defaultsByKey.get(record?.[key]) || {};
       const merged = { ...defaults, ...record };
       Object.keys(defaults).forEach((field) => {
         if (record?.[field] == null || ["", "undefined", "null", "nan"].includes(String(record[field]).trim().toLowerCase())) merged[field] = defaults[field];
       });
-      return merged;
+      return target === drivers ? normalizeDriverRecord(merged, defaults, index) : merged;
     });
     const recordKeys = new Set(normalizedRecords.map((record) => record?.[key]).filter(Boolean));
     const secondaryKeys = new Set(secondaryKey ? normalizedRecords.map((record) => record?.[secondaryKey]).filter(Boolean) : []);
@@ -1964,18 +2003,18 @@ function openCertificationReview(driverId) {
   const files = driver.certificationFiles || {};
   certificationReviewContent.innerHTML = `
     <div class="certification-review-summary">
-      <div><span>司机姓名</span><strong>${driver.name}</strong></div>
-      <div><span>身份证号</span><strong>${maskCertificationId(driver.idCard)}</strong></div>
+      <div><span>司机姓名</span><strong>${businessCell(driver.name, "测试司机")}</strong></div>
+      <div><span>身份证号</span><strong>${businessCell(maskCertificationId(driver.idCard), "330206********9999")}</strong></div>
       <div><span>认证状态</span><strong><em class="certification-badge ${status.className}">${status.label}</em></strong></div>
-      <div><span>联系电话</span><strong>${driver.phone}</strong></div>
-      <div><span>准驾车型</span><strong>${driver.licenseClass}</strong></div>
-      <div><span>提交时间</span><strong>${driver.certificationSubmittedAt || "尚未提交"}</strong></div>
+      <div><span>联系电话</span><strong>${businessCell(driver.phone, "13800009999")}</strong></div>
+      <div><span>准驾车型</span><strong>${businessCell(driver.licenseClass, "A2")}</strong></div>
+      <div><span>提交时间</span><strong>${businessCell(driver.certificationSubmittedAt, "尚未提交")}</strong></div>
     </div>
     <div class="certification-file-grid">
-      <div class="certification-file-card"><i>身份</i><div><strong>身份证人像面</strong><span>${files.idCardFront || "未上传"}</span></div></div>
-      <div class="certification-file-card"><i>身份</i><div><strong>身份证国徽面</strong><span>${files.idCardBack || "未上传"}</span></div></div>
-      <div class="certification-file-card"><i>驾驶</i><div><strong>驾驶证照片</strong><span>${files.licenseAttachment || driver.licenseAttachment || "未上传"}</span></div></div>
-      <div class="certification-file-card"><i>资格</i><div><strong>从业资格证</strong><span>${files.qualificationAttachment || driver.qualificationAttachment || "未上传"}</span></div></div>
+      <div class="certification-file-card"><i>身份</i><div><strong>身份证人像面</strong><span>${businessCell(files.idCardFront, "身份证人像面测试图.jpg")}</span></div></div>
+      <div class="certification-file-card"><i>身份</i><div><strong>身份证国徽面</strong><span>${businessCell(files.idCardBack, "身份证国徽面测试图.jpg")}</span></div></div>
+      <div class="certification-file-card"><i>驾驶</i><div><strong>驾驶证照片</strong><span>${businessCell(files.licenseAttachment || driver.licenseAttachment, "驾驶证测试扫描件.pdf")}</span></div></div>
+      <div class="certification-file-card"><i>资格</i><div><strong>从业资格证</strong><span>${businessCell(files.qualificationAttachment || driver.qualificationAttachment, "从业资格证测试照片.jpg")}</span></div></div>
     </div>`;
   certificationReviewNote.value = driver.certificationReason || "";
   const canReview = canReviewDriverCertification(driver);
@@ -2128,29 +2167,29 @@ function renderDriverRows(rows) {
       const expiryInfo = getDriverExpiryInfo(driver);
       const certificationInfo = getCertificationInfo(driver.certificationStatus);
       const certificationAction = canReviewDriverCertification(driver)
-        ? `<button class="link-btn" data-review-driver="${driver.id}" type="button">认证审核</button>`
-        : `<button class="link-btn" data-view-certification="${driver.id}" type="button">查看认证资料</button>`;
+        ? `<button class="link-btn" data-review-driver="${businessCell(driver.id, "待补录")}" type="button">认证审核</button>`
+        : `<button class="link-btn" data-view-certification="${businessCell(driver.id, "待补录")}" type="button">查看认证资料</button>`;
       return `
         <tr class="${expiryInfo.rowClass}">
-          <td><input class="driver-row-check" data-driver-id="${driver.id}" type="checkbox" ${selectedDriverIds.has(driver.id) ? "checked" : ""} /></td>
-          <td><strong class="primary-text">${driver.name}</strong></td>
-          <td>${driver.gender}</td>
-          <td>${driver.phone}</td>
-          <td>${driver.idCard}</td>
-          <td><span class="state-pill ${getDriverStateClass(driver.driverState)}">${driver.driverState}</span></td>
+          <td><input class="driver-row-check" data-driver-id="${businessCell(driver.id, "待补录")}" type="checkbox" ${selectedDriverIds.has(driver.id) ? "checked" : ""} /></td>
+          <td><strong class="primary-text">${businessCell(driver.name, "测试司机")}</strong></td>
+          <td>${businessCell(driver.gender, "男")}</td>
+          <td>${businessCell(driver.phone, "13800009999")}</td>
+          <td>${businessCell(driver.idCard, "330206199001019999")}</td>
+          <td><span class="state-pill ${getDriverStateClass(driver.driverState)}">${businessCell(driver.driverState, "停用")}</span></td>
           <td><span class="certification-badge ${certificationInfo.className}">${certificationInfo.label}</span></td>
-          <td>${driver.fleet}</td>
-          <td>${driver.entryDate}</td>
-          <td>${driver.licenseClass}</td>
-          <td>${driver.licenseExpiry}</td>
-          <td>${driver.qualificationExpiry}</td>
+          <td>${businessCell(driver.fleet, "宁波测试车队")}</td>
+          <td>${businessCell(driver.entryDate, "2026-03-18")}</td>
+          <td>${businessCell(driver.licenseClass, "A2")}</td>
+          <td>${businessCell(driver.licenseExpiry, "2029-06-18")}</td>
+          <td>${businessCell(driver.qualificationExpiry, "2029-12-31")}</td>
           <td><span class="due-pill ${expiryInfo.key}">${expiryInfo.label}</span></td>
           <td class="fixed-action-column">
             <div class="vehicle-action-group">
-              <button class="link-btn" data-detail-driver="${driver.id}" type="button">详情</button>
+              <button class="link-btn" data-detail-driver="${businessCell(driver.id, "待补录")}" type="button">详情</button>
               ${certificationAction}
-              <button class="link-btn" data-edit-driver="${driver.id}" type="button">编辑</button>
-              <button class="link-btn delete-btn" data-delete-driver="${driver.id}" type="button">删除</button>
+              <button class="link-btn" data-edit-driver="${businessCell(driver.id, "待补录")}" type="button">编辑</button>
+              <button class="link-btn delete-btn" data-delete-driver="${businessCell(driver.id, "待补录")}" type="button">删除</button>
             </div>
           </td>
         </tr>`;
@@ -2217,14 +2256,14 @@ function renderDriverDetail(driver) {
     },
   ];
 
-  document.querySelector("#detailDriverTitle").textContent = driver.name;
-  document.querySelector("#detailDriverMeta").textContent = `${driver.driverType} / ${driver.licenseClass}`;
+  document.querySelector("#detailDriverTitle").textContent = businessText(driver.name, "测试司机");
+  document.querySelector("#detailDriverMeta").textContent = `${businessText(driver.driverType, "自有司机")} / ${businessText(driver.licenseClass, "A2")}`;
   const detailDriverState = document.querySelector("#detailDriverState");
-  detailDriverState.textContent = driver.driverState;
+  detailDriverState.textContent = businessText(driver.driverState, "停用");
   detailDriverState.className = `state-pill ${getDriverStateClass(driver.driverState)}`;
-  document.querySelector("#detailDriverPhone").textContent = driver.phone || "—";
-  document.querySelector("#detailDriverFleet").textContent = driver.fleet || "—";
-  document.querySelector("#detailDriverEntryDate").textContent = driver.entryDate || "—";
+  document.querySelector("#detailDriverPhone").textContent = businessText(driver.phone, "13800009999");
+  document.querySelector("#detailDriverFleet").textContent = businessText(driver.fleet, "宁波测试车队");
+  document.querySelector("#detailDriverEntryDate").textContent = businessText(driver.entryDate, "2026-03-18");
   const detailDriverCertification = document.querySelector("#detailDriverCertification");
   detailDriverCertification.textContent = certificationInfo.label;
   detailDriverCertification.className = `certification-badge ${certificationInfo.className}`;
@@ -2243,7 +2282,7 @@ function renderDriverDetail(driver) {
                 ([label, value]) => `
                   <div class="detail-item">
                     <dt>${label}</dt>
-                    <dd>${value || "—"}</dd>
+                    <dd>${businessCell(value, "测试数据待补充")}</dd>
                   </div>
                 `
               )
@@ -2318,7 +2357,7 @@ function openDriverForm(mode, driverId = "") {
       "driverState", "fleet", "licenseNo", "licenseClass", "licenseIssueDate", "licenseExpiry", "qualificationNo",
       "qualificationExpiry", "bankCard", "bankName", "remark",
     ].forEach((fieldName) => {
-      driverForm.elements[fieldName].value = driver[fieldName];
+      driverForm.elements[fieldName].value = businessText(driver[fieldName], "");
     });
   }
   driverDialog.showModal();
@@ -6069,7 +6108,13 @@ window.addEventListener("storage", (event) => {
       if (Array.isArray(snapshot.fixedRoutes)) { fixedRoutes.splice(0, fixedRoutes.length, ...snapshot.fixedRoutes); }
       if (Array.isArray(snapshot.vehicles)) { vehicles.splice(0, vehicles.length, ...snapshot.vehicles); }
       if (Array.isArray(snapshot.trailers)) { trailers.splice(0, trailers.length, ...snapshot.trailers); }
-      if (Array.isArray(snapshot.drivers)) { drivers.splice(0, drivers.length, ...snapshot.drivers); }
+      if (Array.isArray(snapshot.drivers)) {
+        const defaultsById = new Map(drivers.map((driver) => [driver.id, driver]));
+        const normalizedDrivers = snapshot.drivers.map((driver, index) => normalizeDriverRecord(driver, defaultsById.get(driver?.id) || {}, index));
+        const syncedIds = new Set(normalizedDrivers.map((driver) => driver.id));
+        const untouchedDrivers = drivers.filter((driver) => !syncedIds.has(driver.id));
+        drivers.splice(0, drivers.length, ...normalizedDrivers, ...untouchedDrivers);
+      }
       syncDriverOperationalStates();
       renderRows(waybills);
       renderVehiclePage(getFilteredVehicles(), getWarningDays());

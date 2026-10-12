@@ -16,6 +16,14 @@ const context = vm.createContext({
   document: { querySelector: node },
   getCertificationInfo: () => ({ label: "已认证", className: "verified" }),
   getDriverStateClass: () => "transporting-state",
+  businessText: (value, fallback = "未维护") => {
+    const text = String(value ?? "").trim();
+    return text && !["undefined", "null", "nan"].includes(text.toLowerCase()) ? text : fallback;
+  },
+  businessCell: (value, fallback = "未维护") => {
+    const text = String(value ?? "").trim();
+    return text && !["undefined", "null", "nan"].includes(text.toLowerCase()) ? text : fallback;
+  },
 });
 vm.runInContext(source.slice(start, end), context);
 
@@ -36,6 +44,10 @@ assert.match(detail, /aria-label="证件信息"[\s\S]*驾驶证[\s\S]*道路运�
 for (const text of ["基础资料", "身份证号码", "驾驶证号", "道路运输从业资格证", "资格证号", "开户银行", "档案完整"]) assert.match(detail, new RegExp(text));
 assert.equal(node("#detailDriverTitle").textContent, "王海");
 assert.equal(node("#detailDriverPhone").textContent, "13800008881");
+context.renderDriverDetail({ name: "测试司机", certificationStatus: "unverified", phone: undefined, bankName: "undefined" });
+assert.doesNotMatch(node("#driverDetailBase").innerHTML, /undefined/i);
+assert.doesNotMatch(node("#detailDriverMeta").textContent, /undefined/i);
+assert.doesNotMatch(node("#detailDriverPhone").textContent, /undefined/i);
 assert.match(source, /driverDetailPanel\.classList\.add\("open"\);\s*renderDriverDetail\(driver\);\s*window\.scrollTo\(\{ top: 0/);
 assert.doesNotMatch(source.slice(source.indexOf("function openDriverDetail("), source.indexOf("function closeDriverDetail(")), /scrollIntoView/);
 
