@@ -294,6 +294,7 @@ const pageViews = {
   autoDispatch: document.querySelector("#autoDispatchPage"),
   autoDispatchConfig: document.querySelector("#autoDispatchConfigPage"),
   finance: document.querySelector("#financePage"),
+  driverExpenses: document.querySelector("#driverExpensePage"),
   customer: document.querySelector("#customerPage"),
   reminderTemplates: document.querySelector("#reminderTemplatePage"),
   vehicle: document.querySelector("#vehiclePage"),
@@ -313,6 +314,7 @@ const pageMeta = {
   "auto-dispatch": { title: "自动派单", kicker: "计划与派单 / 智能调度", view: "autoDispatch" },
   "auto-dispatch-config": { title: "自动派单配置", kicker: "系统配置 / 自动派单", view: "autoDispatchConfig" },
   "finance-reports": { title: "运输成本台账", kicker: "财务管理 / 运输成本台账", view: "finance" },
+  "driver-expenses": { title: "司机费用上报", kicker: "财务管理 / 司机费用上报", view: "driverExpenses" },
   "customer-archives": { title: "客户管理", kicker: "基础资料 / 客户档案", view: "customer" },
   "reminder-templates": { title: "消息提醒模板", kicker: "基础资料 / 消息提醒", view: "reminderTemplates" },
   vehicle: {
@@ -4237,6 +4239,257 @@ function closeFinanceExpenseDialog() {
   financeEditingWaybillNo = "";
 }
 
+const DRIVER_EXPENSE_STORAGE_KEY = "container-logistics-driver-expenses-v1";
+const driverExpenseSeed = [
+  { id: "EXP-20261012001", driverId: "SJ-1002", type: "fuel", typeLabel: "加油", amount: "680.00", date: "2026-10-12", receiptName: "加油电子发票-1011.pdf", remark: "外高桥港区加油", dispatchId: "PD-1011", waybillNo: "WB20261012011", vehicleId: "沪D·A9021", status: "pending", createdAt: "2026-10-12T12:05:00" },
+  { id: "EXP-20261012002", driverId: "SJ-1002", type: "parking", typeLabel: "停车费", amount: "60.00", date: "2026-10-12", receiptName: "临港停车凭证.jpg", remark: "临港堆场停车", dispatchId: "PD-1012", waybillNo: "WB20261012012", vehicleId: "沪D·A9021", status: "pending", createdAt: "2026-10-12T13:18:00" },
+  { id: "EXP-20261012003", driverId: "SJ-1002", type: "container", typeLabel: "提箱费", amount: "320.00", date: "2026-10-12", receiptName: "提箱缴费单-1014.pdf", remark: "洋山港提重箱", dispatchId: "PD-1014", waybillNo: "WB20261012014", vehicleId: "沪D·A9021", status: "pending", createdAt: "2026-10-12T11:02:00" },
+  { id: "EXP-20260920001", driverId: "SJ-1002", type: "toll", typeLabel: "路桥费", amount: "186.00", date: "2026-09-20", receiptName: "高速通行凭证.pdf", remark: "芦潮港至嘉兴高速费", dispatchId: "PD-1008", waybillNo: "WB20260920008", vehicleId: "沪D·A9021", status: "approved", reviewedBy: "系统管理员", reviewedAt: "2026-09-20 18:30", rejectionReason: "", createdAt: "2026-09-20T16:12:00" },
+  { id: "EXP-20260919001", driverId: "SJ-1002", type: "other", typeLabel: "装卸等待费", customType: "装卸等待费", amount: "150.00", date: "2026-09-19", receiptName: "", remark: "等待时间不足计费标准", dispatchId: "PD-1009", waybillNo: "WB20260919009", vehicleId: "沪D·A9021", status: "rejected", reviewedBy: "系统管理员", reviewedAt: "2026-09-19 16:05", rejectionReason: "请补充现场等待证明后重新上报", createdAt: "2026-09-19T12:20:00" },
+  { id: "EXP-20260916001", driverId: "SJ-1001", type: "repair", typeLabel: "维修", amount: "480.00", date: "2026-09-16", receiptName: "轮胎维修收据.jpg", remark: "运输途中补胎", dispatchId: "PD-1001", waybillNo: "WB20260916001", vehicleId: "浙B·K7812", status: "approved", reviewedBy: "系统管理员", reviewedAt: "2026-09-16 17:40", rejectionReason: "", createdAt: "2026-09-16T14:26:00" },
+];
+const driverExpenseTypeLabels = {
+  fuel: "加油",
+  electricity: "充电",
+  gas: "燃气费",
+  toll: "路桥费",
+  parking: "停车费",
+  repair: "维修",
+  container: "提箱费",
+  other: "其他",
+};
+let driverExpenseRecords = loadDriverExpenseRecords();
+let driverExpenseCurrentPage = 1;
+let driverExpensePageSize = 10;
+let driverExpenseVisiblePendingIds = [];
+let reviewingDriverExpenseId = "";
+const selectedDriverExpenseIds = new Set();
+
+function normalizeDriverExpenseRecord(item, index = 0) {
+  const status = ["pending", "approved", "rejected"].includes(item?.status) ? item.status : "pending";
+  return {
+    ...item,
+    id: String(item?.id || `EXP-${Date.now()}-${index + 1}`),
+    driverId: String(item?.driverId || ""),
+    type: String(item?.type || "other"),
+    typeLabel: String(item?.typeLabel || driverExpenseTypeLabels[item?.type] || "其他"),
+    amount: Math.max(0, financeNumber(item?.amount)).toFixed(2),
+    date: String(item?.date || ""),
+    status,
+    receiptName: String(item?.receiptName || ""),
+    remark: String(item?.remark || ""),
+    reviewedBy: String(item?.reviewedBy || ""),
+    reviewedAt: String(item?.reviewedAt || ""),
+    rejectionReason: String(item?.rejectionReason || ""),
+    createdAt: String(item?.createdAt || ""),
+  };
+}
+
+function loadDriverExpenseRecords() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DRIVER_EXPENSE_STORAGE_KEY) || "null");
+    const source = Array.isArray(stored) && stored.length ? stored : driverExpenseSeed;
+    return source.map(normalizeDriverExpenseRecord);
+  } catch (error) {
+    console.warn("司机费用数据读取失败，使用初始数据。", error);
+    return driverExpenseSeed.map(normalizeDriverExpenseRecord);
+  }
+}
+
+function saveDriverExpenseRecords() {
+  try { localStorage.setItem(DRIVER_EXPENSE_STORAGE_KEY, JSON.stringify(driverExpenseRecords)); } catch (error) { console.warn("司机费用数据保存失败。", error); }
+}
+
+function getDriverExpenseRows() {
+  return driverExpenseRecords
+    .map((item) => ({
+      ...item,
+      driverName: drivers.find((driver) => driver.id === item.driverId)?.name || item.driverName || "未知司机",
+    }))
+    .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
+}
+
+function getFilteredDriverExpenseRows(rows = getDriverExpenseRows()) {
+  const form = document.querySelector("#driverExpenseQueryForm");
+  if (!form) return rows;
+  const data = new FormData(form);
+  return window.ExpenseReport.filterRecords(rows, {
+    driverId: String(data.get("driverId") || ""),
+    keyword: String(data.get("keyword") || ""),
+    type: String(data.get("type") || ""),
+    status: String(data.get("status") || ""),
+    startDate: String(data.get("startDate") || ""),
+    endDate: String(data.get("endDate") || ""),
+  });
+}
+
+function driverExpenseStatusMeta(status) {
+  return {
+    pending: { label: "待审核", className: "pending" },
+    approved: { label: "已通过", className: "approved" },
+    rejected: { label: "已驳回", className: "rejected" },
+  }[status] || { label: "待审核", className: "pending" };
+}
+
+function driverExpenseDateTime(value) {
+  const text = String(value || "").trim();
+  return text ? text.replace("T", " ").slice(0, 16) : "";
+}
+
+function populateDriverExpenseFilters(rows) {
+  const driverSelect = document.querySelector("#driverExpenseDriverFilter");
+  const typeSelect = document.querySelector("#driverExpenseTypeFilter");
+  if (driverSelect) {
+    const current = driverSelect.value;
+    const options = [...new Map(rows.map((item) => [item.driverId, item.driverName]).filter(([id]) => id)).entries()];
+    driverSelect.innerHTML = `<option value="">全部司机</option>${options.map(([id, name]) => `<option value="${dashboardEscape(id)}">${dashboardEscape(name)}</option>`).join("")}`;
+    driverSelect.value = options.some(([id]) => id === current) ? current : "";
+  }
+  if (typeSelect) {
+    const current = typeSelect.value;
+    const types = [...new Set(rows.map((item) => item.type).filter(Boolean))];
+    typeSelect.innerHTML = `<option value="">全部类型</option>${types.map((type) => `<option value="${dashboardEscape(type)}">${dashboardEscape(driverExpenseTypeLabels[type] || "其他")}</option>`).join("")}`;
+    typeSelect.value = types.includes(current) ? current : "";
+  }
+}
+
+function renderDriverExpenseSummary(rows) {
+  const pending = rows.filter((item) => item.status === "pending");
+  const approved = rows.filter((item) => item.status === "approved");
+  const rejected = rows.filter((item) => item.status === "rejected");
+  const amount = rows.reduce((sum, item) => sum + financeNumber(item.amount), 0);
+  document.querySelector("#driverExpenseSummary").innerHTML = [
+    ["待审核", pending.length, financeMoney(pending.reduce((sum, item) => sum + financeNumber(item.amount), 0)), "pending"],
+    ["已通过", approved.length, financeMoney(approved.reduce((sum, item) => sum + financeNumber(item.amount), 0)), "completed"],
+    ["已驳回", rejected.length, "需司机补充后重新上报", "rejected"],
+    ["筛选费用合计", financeMoney(amount), `${rows.length} 条费用明细`, "total"],
+  ].map(([label, value, note, className]) => `<div class="finance-summary-card ${className}"><span>${label}</span><strong>${value}</strong><small>${note}</small></div>`).join("");
+}
+
+function renderDriverExpenseRows(rows) {
+  const body = document.querySelector("#driverExpenseBody");
+  const start = (driverExpenseCurrentPage - 1) * driverExpensePageSize;
+  const visible = rows.slice(start, start + driverExpensePageSize);
+  driverExpenseVisiblePendingIds = visible.filter((item) => item.status === "pending").map((item) => item.id);
+  body.innerHTML = visible.length ? visible.map((item) => {
+    const status = driverExpenseStatusMeta(item.status);
+    const reviewInfo = item.status === "pending"
+      ? '<span class="finance-empty-value">等待审核</span>'
+      : `<span class="driver-expense-review-meta">${financeFormatCell(item.reviewedBy)}<small>${financeFormatCell(item.reviewedAt)}</small>${item.rejectionReason ? `<small class="rejection">${dashboardEscape(item.rejectionReason)}</small>` : ""}</span>`;
+    const actions = item.status === "pending"
+      ? `<button class="link-btn success-link" data-driver-expense-action="approve" data-driver-expense-id="${dashboardEscape(item.id)}" type="button">通过</button><button class="link-btn danger-link" data-driver-expense-action="reject" data-driver-expense-id="${dashboardEscape(item.id)}" type="button">驳回</button>`
+      : `<button class="link-btn" data-driver-expense-action="view" data-driver-expense-id="${dashboardEscape(item.id)}" type="button">查看</button>`;
+    return `<tr data-driver-expense-row="${dashboardEscape(item.id)}">
+      <td class="check-col"><input class="driver-expense-checkbox" type="checkbox" value="${dashboardEscape(item.id)}" aria-label="选择费用 ${dashboardEscape(item.id)}" ${item.status === "pending" ? "" : "disabled"} ${selectedDriverExpenseIds.has(item.id) ? "checked" : ""} /></td>
+      <td><strong class="primary-text">${dashboardEscape(item.id)}</strong></td><td>${financeFormatCell(item.driverName)}</td><td>${financeFormatCell(item.waybillNo)}</td><td>${financeFormatCell(item.vehicleId)}</td><td>${financeFormatCell(item.typeLabel)}</td><td class="finance-money-cell">${financeMoney(item.amount)}</td><td>${financeFormatCell(item.date)}</td><td class="driver-expense-receipt">${financeFormatCell(item.receiptName, "未上传")}</td><td class="driver-expense-remark">${financeFormatCell(item.remark, "无")}</td><td>${financeFormatCell(driverExpenseDateTime(item.createdAt))}</td><td><span class="driver-expense-status ${status.className}">${status.label}</span></td><td>${reviewInfo}</td><td class="fixed-action-column"><div class="vehicle-action-group">${actions}</div></td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="14" class="empty-table-cell">暂无符合条件的费用上报记录</td></tr>';
+}
+
+function renderDriverExpenseSelectionState(rows) {
+  const validPendingIds = new Set(getDriverExpenseRows().filter((item) => item.status === "pending").map((item) => item.id));
+  [...selectedDriverExpenseIds].forEach((id) => { if (!validPendingIds.has(id)) selectedDriverExpenseIds.delete(id); });
+  const selectedVisible = driverExpenseVisiblePendingIds.filter((id) => selectedDriverExpenseIds.has(id)).length;
+  const selectAll = document.querySelector("#driverExpenseSelectAll");
+  selectAll.checked = driverExpenseVisiblePendingIds.length > 0 && selectedVisible === driverExpenseVisiblePendingIds.length;
+  selectAll.indeterminate = selectedVisible > 0 && selectedVisible < driverExpenseVisiblePendingIds.length;
+  selectAll.disabled = !driverExpenseVisiblePendingIds.length;
+  const selectedPending = [...selectedDriverExpenseIds].filter((id) => validPendingIds.has(id));
+  const filteredPending = rows.filter((item) => item.status === "pending");
+  document.querySelector("#driverExpenseApproveSelectedBtn").disabled = !selectedPending.length;
+  document.querySelector("#driverExpenseApproveAllBtn").disabled = !filteredPending.length;
+  document.querySelector("#driverExpenseResultText").textContent = `共 ${rows.length} 条明细，已选择 ${selectedPending.length} 条`;
+  document.querySelector("#driverExpensePendingBadge").textContent = `待审核 ${filteredPending.length}`;
+}
+
+function renderDriverExpensePagination(total) {
+  const pageCount = Math.max(1, Math.ceil(total / driverExpensePageSize));
+  driverExpenseCurrentPage = Math.min(Math.max(1, driverExpenseCurrentPage), pageCount);
+  document.querySelector("#driverExpenseCurrentPage").textContent = String(driverExpenseCurrentPage);
+  document.querySelector("#driverExpensePrevPage").disabled = driverExpenseCurrentPage <= 1;
+  document.querySelector("#driverExpenseNextPage").disabled = driverExpenseCurrentPage >= pageCount;
+  document.querySelector("#driverExpensePageJump").max = String(pageCount);
+  document.querySelector("#driverExpensePageJump").value = String(driverExpenseCurrentPage);
+  document.querySelector("#driverExpenseTotalText").textContent = `共 ${total} 条记录`;
+}
+
+function renderDriverExpensePage() {
+  const allRows = getDriverExpenseRows();
+  populateDriverExpenseFilters(allRows);
+  const rows = getFilteredDriverExpenseRows(allRows);
+  driverExpensePageSize = Number(document.querySelector("#driverExpensePageSize")?.value) || 10;
+  renderDriverExpenseSummary(rows);
+  renderDriverExpensePagination(rows.length);
+  renderDriverExpenseRows(rows);
+  renderDriverExpenseSelectionState(rows);
+  document.querySelector("#driverExpenseQuerySummary").textContent = `筛选结果 ${rows.length} 条费用明细`;
+  window.lucide?.createIcons();
+}
+
+function openDriverExpenseReview(recordId, mode = "view") {
+  const item = getDriverExpenseRows().find((record) => record.id === recordId);
+  if (!item) return;
+  reviewingDriverExpenseId = item.id;
+  const status = driverExpenseStatusMeta(item.status);
+  const canReview = item.status === "pending";
+  document.querySelector("#driverExpenseReviewTitle").textContent = mode === "reject" ? "驳回费用上报" : canReview ? "费用审核" : "费用审核详情";
+  document.querySelector("#driverExpenseReviewSubtitle").textContent = `${item.id} · ${item.driverName} · ${item.waybillNo || "未关联运单"}`;
+  document.querySelector("#driverExpenseReviewContent").innerHTML = `
+    <div class="certification-review-summary driver-expense-review-summary">
+      <div><span>司机</span><strong>${financeFormatCell(item.driverName)}</strong></div><div><span>关联运单</span><strong>${financeFormatCell(item.waybillNo)}</strong></div><div><span>车辆</span><strong>${financeFormatCell(item.vehicleId)}</strong></div>
+      <div><span>费用类型</span><strong>${financeFormatCell(item.typeLabel)}</strong></div><div><span>费用金额</span><strong>${financeMoney(item.amount)}</strong></div><div><span>发生日期</span><strong>${financeFormatCell(item.date)}</strong></div>
+      <div><span>费用凭证</span><strong>${financeFormatCell(item.receiptName, "未上传")}</strong></div><div><span>上报时间</span><strong>${financeFormatCell(driverExpenseDateTime(item.createdAt))}</strong></div><div><span>审核状态</span><strong><em class="driver-expense-status ${status.className}">${status.label}</em></strong></div>
+    </div>
+    <div class="driver-expense-review-note"><span>备注说明</span><p>${financeFormatCell(item.remark, "无")}</p>${item.rejectionReason ? `<span>驳回原因</span><p class="rejection">${dashboardEscape(item.rejectionReason)}</p>` : ""}</div>`;
+  const reasonField = document.querySelector("#driverExpenseRejectReasonField");
+  const reasonInput = document.querySelector("#driverExpenseRejectReason");
+  reasonField.hidden = !canReview;
+  reasonInput.value = "";
+  reasonInput.setCustomValidity("");
+  document.querySelector("#cancelDriverExpenseReviewBtn").textContent = canReview ? "取消" : "关闭";
+  document.querySelector("#rejectDriverExpenseBtn").hidden = !canReview;
+  document.querySelector("#approveDriverExpenseBtn").hidden = !canReview;
+  document.querySelector("#driverExpenseReviewDialog").showModal();
+  if (mode === "reject" && canReview) setTimeout(() => reasonInput.focus(), 0);
+}
+
+function closeDriverExpenseReview() {
+  const dialog = document.querySelector("#driverExpenseReviewDialog");
+  if (dialog?.open) dialog.close();
+  reviewingDriverExpenseId = "";
+  document.querySelector("#driverExpenseRejectReason").value = "";
+}
+
+function applyDriverExpenseReview(recordIds, result, rejectionReason = "") {
+  const pendingIds = new Set(driverExpenseRecords.filter((item) => item.status === "pending").map((item) => item.id));
+  const ids = recordIds.filter((id) => pendingIds.has(id));
+  if (!ids.length) return 0;
+  driverExpenseRecords = window.ExpenseReport.applyReview(driverExpenseRecords, ids, result, {
+    reviewedAt: window.DispatchStore.nowText(),
+    reviewedBy: "系统管理员",
+    rejectionReason,
+  });
+  ids.forEach((id) => selectedDriverExpenseIds.delete(id));
+  saveDriverExpenseRecords();
+  renderDriverExpensePage();
+  return ids.length;
+}
+
+function reviewCurrentDriverExpense(result) {
+  if (!reviewingDriverExpenseId) return;
+  const reasonInput = document.querySelector("#driverExpenseRejectReason");
+  const reason = reasonInput.value.trim();
+  if (result === "rejected" && !reason) {
+    reasonInput.setCustomValidity("驳回费用时请填写具体原因");
+    reasonInput.reportValidity();
+    return;
+  }
+  reasonInput.setCustomValidity("");
+  const count = applyDriverExpenseReview([reviewingDriverExpenseId], result, reason);
+  closeDriverExpenseReview();
+  document.querySelector("#driverExpenseResultText").textContent = result === "approved" ? `已通过 ${count} 条费用上报` : `已驳回 ${count} 条费用上报`;
+}
+
 function switchPage(pageName) {
   const meta = pageMeta[pageName] || pageMeta.waybill;
   activePageName = pageName;
@@ -4302,6 +4555,9 @@ function switchPage(pageName) {
   if (meta.view === "finance") {
     renderFinancePage(getFilteredFinanceRows());
   }
+  if (meta.view === "driverExpenses") {
+    renderDriverExpensePage();
+  }
   if (meta.view === "customer") {
     window.CustomerManager?.render();
   }
@@ -4318,6 +4574,7 @@ renderRoutePage();
 renderDispatchPage();
 renderCapacityPage();
 renderFinancePage();
+renderDriverExpensePage();
 renderReminderTemplatePage();
 renderDashboard();
 
@@ -5131,6 +5388,94 @@ document.querySelector("#financeNextPage")?.addEventListener("click", () => {
 document.querySelector("#financePageJump")?.addEventListener("change", (event) => {
   financeCurrentPage = Number(event.target.value) || 1;
   renderFinancePage(getFilteredFinanceRows());
+});
+
+const driverExpenseQueryForm = document.querySelector("#driverExpenseQueryForm");
+const driverExpenseBody = document.querySelector("#driverExpenseBody");
+driverExpenseQueryForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  driverExpenseCurrentPage = 1;
+  renderDriverExpensePage();
+});
+driverExpenseQueryForm?.addEventListener("change", (event) => {
+  if (["driverId", "type", "status", "startDate", "endDate"].includes(event.target.name)) {
+    driverExpenseCurrentPage = 1;
+    renderDriverExpensePage();
+  }
+});
+document.querySelector("#driverExpenseSelectAll")?.addEventListener("change", (event) => {
+  driverExpenseVisiblePendingIds.forEach((id) => event.target.checked ? selectedDriverExpenseIds.add(id) : selectedDriverExpenseIds.delete(id));
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpenseSelectPageBtn")?.addEventListener("click", () => {
+  driverExpenseVisiblePendingIds.forEach((id) => selectedDriverExpenseIds.add(id));
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpenseInvertPageBtn")?.addEventListener("click", () => {
+  driverExpenseVisiblePendingIds.forEach((id) => {
+    if (selectedDriverExpenseIds.has(id)) selectedDriverExpenseIds.delete(id);
+    else selectedDriverExpenseIds.add(id);
+  });
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpenseApproveSelectedBtn")?.addEventListener("click", () => {
+  const ids = [...selectedDriverExpenseIds];
+  if (!ids.length || !window.confirm(`确认通过已选择的 ${ids.length} 条费用上报吗？`)) return;
+  const count = applyDriverExpenseReview(ids, "approved");
+  document.querySelector("#driverExpenseResultText").textContent = `已批量通过 ${count} 条费用上报`;
+});
+document.querySelector("#driverExpenseApproveAllBtn")?.addEventListener("click", () => {
+  const ids = getFilteredDriverExpenseRows().filter((item) => item.status === "pending").map((item) => item.id);
+  if (!ids.length || !window.confirm(`确认通过当前筛选结果中的全部 ${ids.length} 条待审核费用吗？`)) return;
+  const count = applyDriverExpenseReview(ids, "approved");
+  document.querySelector("#driverExpenseResultText").textContent = `当前筛选结果已全部通过，共处理 ${count} 条`;
+});
+driverExpenseBody?.addEventListener("change", (event) => {
+  const checkbox = event.target.closest(".driver-expense-checkbox");
+  if (!checkbox) return;
+  if (checkbox.checked) selectedDriverExpenseIds.add(checkbox.value);
+  else selectedDriverExpenseIds.delete(checkbox.value);
+  renderDriverExpenseSelectionState(getFilteredDriverExpenseRows());
+});
+driverExpenseBody?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-driver-expense-action]");
+  if (!button) return;
+  const id = button.dataset.driverExpenseId;
+  if (button.dataset.driverExpenseAction === "approve") {
+    if (!window.confirm(`确认通过费用上报 ${id} 吗？`)) return;
+    const count = applyDriverExpenseReview([id], "approved");
+    document.querySelector("#driverExpenseResultText").textContent = `已通过 ${count} 条费用上报`;
+    return;
+  }
+  openDriverExpenseReview(id, button.dataset.driverExpenseAction);
+});
+document.querySelector("#driverExpensePageSize")?.addEventListener("change", () => {
+  driverExpenseCurrentPage = 1;
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpensePrevPage")?.addEventListener("click", () => {
+  driverExpenseCurrentPage -= 1;
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpenseNextPage")?.addEventListener("click", () => {
+  driverExpenseCurrentPage += 1;
+  renderDriverExpensePage();
+});
+document.querySelector("#driverExpensePageJump")?.addEventListener("change", (event) => {
+  driverExpenseCurrentPage = Number(event.target.value) || 1;
+  renderDriverExpensePage();
+});
+document.querySelector("#closeDriverExpenseReviewBtn")?.addEventListener("click", closeDriverExpenseReview);
+document.querySelector("#cancelDriverExpenseReviewBtn")?.addEventListener("click", closeDriverExpenseReview);
+document.querySelector("#approveDriverExpenseBtn")?.addEventListener("click", () => reviewCurrentDriverExpense("approved"));
+document.querySelector("#rejectDriverExpenseBtn")?.addEventListener("click", () => reviewCurrentDriverExpense("rejected"));
+document.querySelector("#driverExpenseRejectReason")?.addEventListener("input", (event) => event.target.setCustomValidity(""));
+document.querySelector("#driverExpenseReviewDialog")?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeDriverExpenseReview();
+});
+document.querySelector("#driverExpenseReviewDialog")?.addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeDriverExpenseReview();
 });
 
 document.querySelector("#refreshDashboardBtn").addEventListener("click", () => {
@@ -6124,6 +6469,7 @@ window.addEventListener("storage", (event) => {
       renderDispatchPage(getFilteredDispatches());
       if (activePageName === "dispatch-detail") renderDispatchDetailPage(currentDispatchDetailId);
       renderCapacityPage(getFilteredCapacityRecords());
+      renderDriverExpensePage();
       renderDashboard();
     }
     return;
@@ -6137,6 +6483,13 @@ window.addEventListener("storage", (event) => {
       closeCertificationReview();
       openCertificationReview(driverId);
     }
+    return;
+  }
+  if (event.key === DRIVER_EXPENSE_STORAGE_KEY) {
+    driverExpenseRecords = loadDriverExpenseRecords();
+    selectedDriverExpenseIds.clear();
+    renderDriverExpensePage();
+    if (reviewingDriverExpenseId) closeDriverExpenseReview();
     return;
   }
   if (event.key !== window.DispatchStore.STORAGE_KEY) return;

@@ -366,19 +366,22 @@ button { cursor: pointer; }
 .expense-history { margin-top: 12px; }
 .expense-record { display: flex; min-height: 57px; align-items: center; justify-content: space-between; gap: 10px; margin: 0 16px; border-bottom: 1px solid #f0f2f6; }
 .expense-record:last-child { border-bottom: 0; }
-.expense-record strong, .expense-record span { display: block; }
+.expense-record strong, .expense-record span, .expense-record small { display: block; }
 .expense-record strong { color: #405069; font-size: 11px; }
 .expense-record span { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.expense-record small { margin-top: 3px; color: #9aa5b5; font-size: 8px; }
 .expense-record em { border-radius: 7px; padding: 4px 7px; color: #c8721e; background: #fff4e8; font-size: 9px; font-style: normal; white-space: nowrap; }
 .expense-empty { margin-top: 12px; padding: 18px; color: var(--muted); font-size: 10px; text-align: center; }
 .expense-form { margin-top: 12px; }
 .expense-form .info-section { margin-top: 0; padding: 0 16px 16px; }
 .expense-form .info-section h2 { margin: 0 -16px 14px; }
 .expense-field { display: block; margin-top: 13px; color: #647187; font-size: 10px; font-weight: 700; }
-.expense-field input:not([type="file"]), .expense-field textarea { width: 100%; margin-top: 7px; border: 1px solid #dfe5ee; border-radius: 8px; padding: 0 11px; outline: 0; color: var(--text); background: #fbfcfe; font: inherit; font-weight: 400; }
-.expense-field input:not([type="file"]) { height: 42px; }
+.expense-field input:not([type="file"]), .expense-field select, .expense-field textarea { width: 100%; margin-top: 7px; border: 1px solid #dfe5ee; border-radius: 8px; padding: 0 11px; outline: 0; color: var(--text); background: #fbfcfe; font: inherit; font-weight: 400; }
+.expense-field input:not([type="file"]), .expense-field select { height: 42px; }
 .expense-field textarea { padding-top: 10px; resize: vertical; }
-.expense-field input:focus, .expense-field textarea:focus { border-color: #7e9eed; box-shadow: 0 0 0 3px rgba(53,106,230,.1); }
+.expense-field input:focus, .expense-field select:focus, .expense-field textarea:focus { border-color: #7e9eed; box-shadow: 0 0 0 3px rgba(53,106,230,.1); }
+.expense-field-hint { display: block; margin-top: 6px; color: #8b97a8; font-size: 8px; font-weight: 400; line-height: 1.5; }
+.expense-form .subpage-primary:disabled { cursor: not-allowed; background: #b9c2d1; }
 .expense-upload { display: flex; min-height: 72px; align-items: center; justify-content: center; flex-direction: column; gap: 5px; margin-top: 7px; border: 1px dashed #bac7dc; border-radius: 8px; background: #f8faff; color: #697891; text-align: center; }
 .expense-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 .expense-upload strong { max-width: 90%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }

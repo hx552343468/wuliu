@@ -74,12 +74,14 @@ const DEFAULT_DEMO_IDS = new Set([...DEFAULT_PENDING_IDS, ...DEFAULT_ORDER_IDS])
 const CERTIFICATION_STORAGE_KEY = "container-logistics-driver-certifications-v1";
 const EXPENSE_STORAGE_KEY = "container-logistics-driver-expenses-v1";
 const EXPENSE_TYPES = Object.freeze([
-  { key: "fuel", label: "燃油费", hint: "柴油、汽油等燃油支出" },
-  { key: "electricity", label: "电费", hint: "充电及换电支出" },
+  { key: "fuel", label: "加油", hint: "柴油、汽油等燃油支出" },
+  { key: "electricity", label: "充电", hint: "充电及换电支出" },
   { key: "gas", label: "燃气费", hint: "天然气等燃气支出" },
   { key: "toll", label: "路桥费", hint: "高速、桥隧通行支出" },
   { key: "parking", label: "停车费", hint: "停车及场站服务支出" },
-  { key: "other", label: "其他费用", hint: "未归类的运输相关支出" },
+  { key: "repair", label: "维修", hint: "车辆维修及配件支出" },
+  { key: "container", label: "提箱费", hint: "提箱及箱务相关支出" },
+  { key: "other", label: "其他", hint: "手动录入其他费用名称" },
 ]);
 const certificationDefaults = {
   "SJ-1001": { status: "verified", submittedAt: "2026-08-12 09:20", reviewedAt: "2026-08-12 11:05" },
@@ -773,7 +775,7 @@ function renderSubpage(page) {
     vehicle: "车辆信息",
     insurance: "车辆保险",
     messages: "消息通知",
-    expenses: "费用申报",
+    expenses: "费用上报",
     service: "联系调度",
     settings: "系统设置",
   };
@@ -897,29 +899,40 @@ function renderSubpage(page) {
 
   if (page === "expenses") {
     const selectedType = EXPENSE_TYPES.find((item) => item.key === state.activeExpenseType);
+    const selectableDispatches = window.ExpenseReport.getSelectableDispatches(state.dispatches, state.currentDriverId);
+    const defaultDispatch = window.ExpenseReport.getDefaultDispatch(state.dispatches, state.currentDriverId);
+    const defaultVehicleId = defaultDispatch?.vehicleId || "";
     const driverExpenses = state.expenses
       .filter((item) => item.driverId === state.currentDriverId)
       .slice()
       .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     if (!selectedType) {
       elements.subpageContent.innerHTML = `
-        <div class="subpage-summary expense-summary"><span class="subpage-summary-icon">费</span><div><strong>费用申报</strong><span>选择费用类型，提交运输相关支出</span></div></div>
+        <div class="subpage-summary expense-summary"><span class="subpage-summary-icon">费</span><div><strong>费用上报</strong><span>选择费用类型，提交运输相关支出</span></div></div>
         <section class="info-section expense-type-section"><h2>选择费用类型</h2><div class="expense-type-grid">
           ${EXPENSE_TYPES.map((item) => `<button class="expense-type-option" data-expense-type="${h(item.key)}" type="button"><span class="expense-type-icon">${h(item.label.slice(0, 1))}</span><span class="expense-type-copy"><strong>${h(item.label)}</strong><small>${h(item.hint)}</small></span><b>›</b></button>`).join("")}
         </div></section>
-        ${driverExpenses.length ? `<section class="info-section expense-history"><h2>最近申报</h2>${driverExpenses.slice(0, 3).map((item) => `<div class="expense-record"><div><strong>${h(item.typeLabel)}</strong><span>${h(item.date)} · ¥${h(item.amount)}</span></div><em>待审核</em></div>`).join("")}</section>` : `<div class="expense-empty">提交后的费用申报会显示在这里</div>`}`;
+        ${driverExpenses.length ? `<section class="info-section expense-history"><h2>最近上报</h2>${driverExpenses.slice(0, 3).map((item) => `<div class="expense-record"><div><strong>${h(item.typeLabel)}</strong><span>${h(item.date)} · ¥${h(item.amount)}</span>${item.waybillNo || item.vehicleId ? `<small>${h([item.waybillNo, item.vehicleId].filter(Boolean).join(" · "))}</small>` : ""}</div><em>待审核</em></div>`).join("")}</section>` : `<div class="expense-empty">提交后的费用上报会显示在这里</div>`}`;
       return;
     }
     elements.subpageContent.innerHTML = `
       <div class="subpage-summary expense-summary"><span class="subpage-summary-icon">${h(selectedType.label.slice(0, 1))}</span><div><strong>${h(selectedType.label)}</strong><span>填写本次费用明细并提交审核</span></div></div>
       <form class="expense-form" id="expenseForm">
         <section class="info-section"><h2>费用明细</h2>
+          ${selectedType.key === "other" ? `<label class="expense-field">费用名称<input name="customType" type="text" maxlength="20" placeholder="请输入费用名称" required /></label>` : ""}
+          <label class="expense-field">关联运单<select name="dispatchId" data-expense-waybill required ${selectableDispatches.length ? "" : "disabled"}>
+            ${selectableDispatches.length ? selectableDispatches.map((item) => `<option value="${h(item.id)}" data-vehicle-id="${h(item.vehicleId || "")}" ${item.id === defaultDispatch?.id ? "selected" : ""}>${h(item.waybillNo)} · ${h(item.routeName)} · ${h(item.status)}</option>`).join("") : `<option value="">暂无进行中或已完成运单</option>`}
+          </select><small class="expense-field-hint">${defaultDispatch?.status === "运输中" ? "已默认选择最近的进行中运单" : defaultDispatch ? "暂无进行中运单，已选择最近完成的运单" : "暂无可关联运单，暂时无法提交"}</small></label>
+          <label class="expense-field">车辆<select name="vehicleId" required>
+            <option value="">请选择车辆</option>
+            ${Object.entries(vehicles).map(([plateNo, vehicle]) => `<option value="${h(plateNo)}" ${plateNo === defaultVehicleId ? "selected" : ""}>${h(plateNo)} · ${h(vehicle.type)}</option>`).join("")}
+          </select></label>
           <label class="expense-field">费用金额（元）<input name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="请输入费用金额" required /></label>
           <label class="expense-field">发生日期<input name="date" type="date" value="${todayInputValue()}" required /></label>
           <label class="expense-field">费用凭证<span class="expense-upload"><input name="receipt" type="file" accept="image/*,.pdf" /><strong>上传发票或支付凭证</strong><small>支持图片、PDF，单个文件不超过 10MB</small></span></label>
           <label class="expense-field">备注说明<textarea name="remark" rows="3" maxlength="120" placeholder="请输入费用用途或补充说明（选填）"></textarea></label>
         </section>
-        <button class="subpage-primary" type="submit">提交费用申报</button>
+        <button class="subpage-primary" type="submit" ${selectableDispatches.length ? "" : "disabled"}>提交费用上报</button>
         <button class="subpage-secondary" data-subpage-action="back-expense-types" type="button">返回费用类型</button>
       </form>`;
     return;
@@ -1242,15 +1255,35 @@ elements.subpageContent.addEventListener("submit", (event) => {
     const formData = new FormData(event.target);
     const amount = Number(formData.get("amount"));
     const selectedType = EXPENSE_TYPES.find((item) => item.key === state.activeExpenseType);
+    const dispatch = window.ExpenseReport.getSelectableDispatches(state.dispatches, state.currentDriverId)
+      .find((item) => item.id === formData.get("dispatchId"));
+    const vehicleId = String(formData.get("vehicleId") || "").trim();
+    const customType = String(formData.get("customType") || "").trim();
     if (!selectedType || !Number.isFinite(amount) || amount <= 0) {
       showToast("请输入有效的费用金额");
+      return;
+    }
+    if (!dispatch) {
+      showToast("请选择有效的关联运单");
+      return;
+    }
+    if (!vehicleId || !vehicles[vehicleId]) {
+      showToast("请选择车辆");
+      return;
+    }
+    if (selectedType.key === "other" && !customType) {
+      showToast("请输入费用名称");
       return;
     }
     state.expenses.unshift({
       id: `EXP-${Date.now()}`,
       driverId: state.currentDriverId,
       type: selectedType.key,
-      typeLabel: selectedType.label,
+      typeLabel: selectedType.key === "other" ? customType : selectedType.label,
+      customType,
+      dispatchId: dispatch.id,
+      waybillNo: dispatch.waybillNo,
+      vehicleId,
       amount: amount.toFixed(2),
       date: String(formData.get("date") || ""),
       receiptName: formData.get("receipt")?.name || "",
@@ -1261,7 +1294,7 @@ elements.subpageContent.addEventListener("submit", (event) => {
     saveExpenses(state.expenses);
     state.activeExpenseType = "";
     renderSubpage("expenses");
-    showToast("费用申报已提交，等待审核");
+    showToast("费用上报已提交，等待审核");
     return;
   }
   if (event.target.id !== "certificationForm") return;
@@ -1290,6 +1323,15 @@ elements.subpageContent.addEventListener("submit", (event) => {
 });
 
 elements.subpageContent.addEventListener("change", (event) => {
+  const waybillSelect = event.target.closest("#expenseForm [data-expense-waybill]");
+  if (waybillSelect) {
+    const selectedOption = waybillSelect.selectedOptions[0];
+    const vehicleSelect = waybillSelect.form.elements.vehicleId;
+    if (selectedOption?.dataset.vehicleId && vehicles[selectedOption.dataset.vehicleId]) {
+      vehicleSelect.value = selectedOption.dataset.vehicleId;
+    }
+    return;
+  }
   const receiptInput = event.target.closest("#expenseForm input[name='receipt']");
   if (receiptInput) {
     const file = receiptInput.files?.[0];
